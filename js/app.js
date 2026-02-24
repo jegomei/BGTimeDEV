@@ -2315,7 +2315,7 @@
             const entry = _pendingImport;
 
             // Comprobar duplicado
-            const stored = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const stored = getHistory();
             const huellaEntrante = huellаPartida(entry);
             const esDuplicado = stored.some(e => huellаPartida(e) === huellaEntrante);
 
@@ -2366,7 +2366,7 @@
         function confirmUrlImport() {
             if (!_pendingImport) return;
             const entry = _pendingImport;
-            const stored = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const stored = getHistory();
             stored.unshift({
                 id: Date.now(),
                 date: entry.date,
@@ -2384,7 +2384,7 @@
                 orderedPlayers: [],
                 playerTotalTimes: []
             });
-            localStorage.setItem('bgtime_history', JSON.stringify(stored.slice(0, 50)));
+            saveHistory(stored.slice(0, 50));
             _pendingImport = null;
             renderHistoryList();
         }
@@ -2396,7 +2396,7 @@
 
         // ── HISTORIAL ──────────────────────────────────────────────
         function saveToHistory(results) {
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             const templateIndex = document.getElementById('templateSelect').value;
             const tplEmoji = (templateIndex !== '' && typeof GAME_TEMPLATES !== 'undefined')
                 ? ((window._allTemplates || GAME_TEMPLATES)[parseInt(templateIndex)].emoji || '🎲')
@@ -2426,7 +2426,7 @@
             history.unshift(entry);
 
             // Guardar máximo 50 partidas en local
-            localStorage.setItem('bgtime_history', JSON.stringify(history.slice(0, 50)));
+            saveHistory(history.slice(0, 50));
 
             // Subir a Firestore si hay sesión
             if (window._fbSaveEntry) window._fbSaveEntry(entry);
@@ -2492,7 +2492,7 @@
         }
 
         function renderHistoryList(showAll = false) {
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             const container = document.getElementById('historyContainer');
             container.innerHTML = '';
 
@@ -2591,9 +2591,9 @@
         function confirmDeleteEntry() {
             const entry = _currentHistoryEntry;
             if (!entry) return;
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             const updated = history.filter(e => e.id !== entry.id);
-            localStorage.setItem('bgtime_history', JSON.stringify(updated));
+            saveHistory(updated);
             document.getElementById('confirmDeleteEntryModal').style.display = 'none';
             document.getElementById('historyDetailModal').style.display = 'none';
 
@@ -2730,11 +2730,11 @@
         function confirmClearHistory() {
             closeClearHistoryModal();
             // Soft delete de todas las partidas que estén en Firestore
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             history.forEach(entry => {
                 if (window._fbDeleteEntry) window._fbDeleteEntry(entry.id);
             });
-            localStorage.removeItem('bgtime_history');
+            removeHistory();
             showHistory();
         }
 
@@ -3098,7 +3098,7 @@
             // y que existan en _libraryIndex (es decir, tienen plantilla)
             let recentPills = '';
             try {
-                const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+                const history = getHistory();
                 const seen    = new Set();
                 const recents = [];
                 for (const entry of history) {
@@ -3190,7 +3190,7 @@
 
         // ── EXPORTAR / IMPORTAR HISTORIAL ─────────────────────────
         function exportHistory() {
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             if (history.length === 0) {
                 alert('No hay partidas guardadas para exportar.');
                 return;
@@ -3219,7 +3219,7 @@
                     const imported = JSON.parse(e.target.result);
                     if (!Array.isArray(imported)) throw new Error();
 
-                    const existing = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+                    const existing = getHistory();
                     const existingIds = new Set(existing.map(e => e.id));
 
                     // Fusionar: añadir solo entradas que no existan ya (por id)
@@ -3234,7 +3234,12 @@
 
                     // Reordenar por id descendente (más reciente primero) y limitar a 50
                     merged.sort((a, b) => b.id - a.id);
-                    localStorage.setItem('bgtime_history', JSON.stringify(merged.slice(0, 50)));
+                    const newEntries = imported.filter(e => !existingIds.has(e.id));
+                    saveHistory(merged.slice(0, 50));
+                    // Si está logueado, subir las nuevas entradas a Firebase
+                    if (window._fbIsLoggedIn?.() && window._fbSaveEntry) {
+                        newEntries.forEach(e => window._fbSaveEntry(e));
+                    }
 
                     // Refrescar la pantalla activa (historial o estadísticas)
                     const active = document.querySelector('.screen.active');
@@ -3259,19 +3264,35 @@
         //  AJUSTES — Jugadores habituales, plantillas propias, backup
         // ══════════════════════════════════════════════════════════════
 
-        // ── Helpers localStorage ──────────────────────────────────────
+        // ── Helpers de datos (localStorage cuando deslogueado, caché en memoria cuando logueado) ──
+        function getHistory() {
+            if (window._fbIsLoggedIn?.()) return window._memHistory || [];
+            return getHistory();
+        }
+        function saveHistory(arr) {
+            if (window._fbIsLoggedIn?.()) { window._memHistory = arr; }
+            else { localStorage.setItem('bgtime_history', JSON.stringify(arr)); }
+        }
+        function removeHistory() {
+            window._memHistory = [];
+            removeHistory();
+        }
         function getFrecuentPlayers() {
+            if (window._fbIsLoggedIn?.()) return window._memFrecuent || [];
             return JSON.parse(localStorage.getItem('bgtime_frecuent_players') || '[]');
         }
         function saveFrecuentPlayers(list) {
-            localStorage.setItem('bgtime_frecuent_players', JSON.stringify(list));
+            if (window._fbIsLoggedIn?.()) { window._memFrecuent = list; }
+            else { localStorage.setItem('bgtime_frecuent_players', JSON.stringify(list)); }
             if (window._fbSaveSettings) window._fbSaveSettings();
         }
         function getCustomTemplates() {
+            if (window._fbIsLoggedIn?.()) return window._memTemplates || [];
             return JSON.parse(localStorage.getItem('bgtime_custom_templates') || '[]');
         }
         function saveCustomTemplates(list) {
-            localStorage.setItem('bgtime_custom_templates', JSON.stringify(list));
+            if (window._fbIsLoggedIn?.()) { window._memTemplates = list; }
+            else { localStorage.setItem('bgtime_custom_templates', JSON.stringify(list)); }
             rebuildLibrary();
             if (window._fbSaveSettings) window._fbSaveSettings();
         }
@@ -3379,7 +3400,7 @@
             const list = getFrecuentPlayers();
             const name = list[index];
             list.splice(index, 1);
-            localStorage.setItem('bgtime_frecuent_players', JSON.stringify(list));
+            saveFrecuentPlayers(list);
             if (window._fbDeletePlayer) window._fbDeletePlayer(name);
             closeDeletePlayerModal();
             renderFrecuentPlayersList();
@@ -3505,7 +3526,7 @@
             if (!chipsContainer) return;
 
             // Obtener jugadores del historial (únicos)
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             const playersFromHistory = new Set();
             history.forEach(entry => {
                 (entry.results || []).forEach(r => {
@@ -3590,7 +3611,7 @@
         // ── Mis plantillas + Juegos del historial ────────────────────
         function renderCustomTemplatesList(showAllTpl = false, showAllHist = false) {
             const templates = getCustomTemplates();
-            const history   = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history   = getHistory();
             const LIMIT = 5;
 
             const svgEdit = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
@@ -3675,7 +3696,7 @@
 
         // Crea una plantilla a partir del último juego con ese nombre en el historial
         function createTemplateFromHistory(gameName) {
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             const entry = history.find(e => e.gameName.trim().toLowerCase() === gameName.trim().toLowerCase());
             if (!entry) return;
 
@@ -3743,8 +3764,7 @@
             const list = getCustomTemplates();
             const tpl = list[index];
             list.splice(index, 1);
-            localStorage.setItem('bgtime_custom_templates', JSON.stringify(list));
-            rebuildLibrary();
+            saveCustomTemplates(list);
             if (window._fbDeleteTemplate) window._fbDeleteTemplate(tpl.id);
             closeDeleteTemplateModal();
             renderCustomTemplatesList();
@@ -3858,7 +3878,7 @@
             // ── Si cambió el emoji al editar, propagarlo al historial ──
             if (_editingTemplateIndex !== null && tpl.emoji !== oldEmoji) {
                 const nameNorm = tpl.name.trim().toLowerCase();
-                const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+                const history = getHistory();
                 let changed = false;
                 history.forEach(e => {
                     if (e.gameName.trim().toLowerCase() === nameNorm) {
@@ -3867,7 +3887,7 @@
                     }
                 });
                 if (changed) {
-                    localStorage.setItem('bgtime_history', JSON.stringify(history));
+                    saveHistory(history);
                     if (window._fbSaveEntry) {
                         history.filter(e => e.gameName.trim().toLowerCase() === nameNorm)
                                .forEach(e => window._fbSaveEntry(e));
@@ -4166,7 +4186,7 @@
         }
 
         function buildStatsCardContent(tab) {
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             const placeholderSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
 
             if (history.length === 0) {
@@ -4235,7 +4255,7 @@
                 return;
             }
 
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
 
             // Partidas en las que participaron AMBOS (resolviendo fusiones)
             const shared = history.filter(e => {
@@ -4329,21 +4349,21 @@
         window.setPlayerSort = function(mode) {
             window._playerSortMode = mode;
             window._statsShowAllPlayers = false;
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             const card = document.getElementById('statsCard-player');
             if (card) card.innerHTML = buildStatsPlayer(history);
         };
 
         window.statsShowMoreGames = function() {
             window._statsShowAllGames = true;
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             const card = document.getElementById('statsCard-game');
             if (card) card.innerHTML = buildStatsGame(history);
         };
 
         window.statsShowMorePlayers = function() {
             window._statsShowAllPlayers = true;
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             const card = document.getElementById('statsCard-player');
             if (card) card.innerHTML = buildStatsPlayer(history);
         };
@@ -4561,7 +4581,7 @@
 
         function showGameDetail(gameKey) {
             _currentGameKey = gameKey;
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             const entries = history.filter(e => e.gameName.trim().toLowerCase() === gameKey);
             if (!entries.length) return;
 
@@ -4641,11 +4661,11 @@
         }
 
         function _saveEmojiForGame(gameKey, emoji) {
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const history = getHistory();
             history.forEach(e => {
                 if (e.gameName.trim().toLowerCase() === gameKey) e.emoji = emoji;
             });
-            localStorage.setItem('bgtime_history', JSON.stringify(history));
+            saveHistory(history);
             document.getElementById('gameDetailEmoji').textContent = emoji;
             document.querySelectorAll('#gameDetailBody .history-card-emoji').forEach(c => c.textContent = emoji);
             if (window._fbSaveEntry) {
@@ -4654,7 +4674,7 @@
             }
             const statsCard = document.getElementById('statsCard-game');
             if (statsCard && statsCard.classList.contains('open')) {
-                statsCard.innerHTML = buildStatsGame(JSON.parse(localStorage.getItem('bgtime_history') || '[]'));
+                statsCard.innerHTML = buildStatsGame(getHistory());
             }
 
             // ── Sincronizar emoji con la plantilla personalizada del mismo juego ──

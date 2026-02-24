@@ -18,6 +18,11 @@
         const db   = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
+        // ── Caché en memoria (activa solo cuando el usuario está logueado) ──
+        window._memHistory   = null;
+        window._memFrecuent  = null;
+        window._memTemplates = null;
+
         // ── Funciones de sincronización ────────────────────────────
 
         // IDs que están confirmados en Firestore (para el icono de nube)
@@ -147,7 +152,7 @@
 
                 window._syncedIds = new Set(remoteAlive.map(e => e.id));
 
-                const local = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+                const local = window._memHistory || [];
                 const remoteAliveIds = new Set(remoteAlive.map(e => String(e.id)));
 
                 // Partidas locales que no están en Firestore → nuevas, hay que subirlas
@@ -178,7 +183,7 @@
                     .sort((a, b) => b.id - a.id)
                     .slice(0, 50);
 
-                localStorage.setItem('bgtime_history', JSON.stringify(merged));
+                window._memHistory = merged;
 
                 if (typeof renderHistoryList === 'function') renderHistoryList();
 
@@ -222,8 +227,8 @@
             const user = auth.currentUser;
             if (!user) return;
             try {
-                const frecuent  = JSON.parse(localStorage.getItem('bgtime_frecuent_players') || '[]');
-                const templates = JSON.parse(localStorage.getItem('bgtime_custom_templates') || '[]');
+                const frecuent  = window._memFrecuent  || [];
+                const templates = window._memTemplates || [];
                 const ref = doc(db, 'users', user.uid, 'settings', 'data');
                 await setDoc(ref, { frecuentPlayers: frecuent, customTemplates: templates });
             } catch (e) {
@@ -239,9 +244,9 @@
                 const settingsSnap = await getDoc(ref);
 
                 if (!settingsSnap.exists()) {
-                    // Primera vez: subir lo que haya en local
-                    const frecuent  = JSON.parse(localStorage.getItem('bgtime_frecuent_players') || '[]');
-                    const templates = JSON.parse(localStorage.getItem('bgtime_custom_templates') || '[]');
+                    // Primera vez: subir lo que haya en la caché (pre-cargada desde localStorage al login)
+                    const frecuent  = window._memFrecuent  || [];
+                    const templates = window._memTemplates || [];
                     if (frecuent.length > 0 || templates.length > 0) {
                         await setDoc(ref, {
                             frecuentPlayers: frecuent,
@@ -260,17 +265,17 @@
                 const deletedTemplates = new Set(remote.deletedTemplates  || []);
 
                 // ── Jugadores habituales ──────────────────────────────
-                const localFrecuent  = JSON.parse(localStorage.getItem('bgtime_frecuent_players') || '[]');
+                const localFrecuent  = window._memFrecuent || [];
                 const remoteFrecuent = (remote.frecuentPlayers || []).filter(p => !deletedPlayers.has(p));
                 // Añadir locales nuevos que no están ni en remoto ni en borrados
                 const soloLocalesFrecuent = localFrecuent.filter(p =>
                     !remoteFrecuent.includes(p) && !deletedPlayers.has(p)
                 );
                 const finalFrecuent = [...remoteFrecuent, ...soloLocalesFrecuent];
-                localStorage.setItem('bgtime_frecuent_players', JSON.stringify(finalFrecuent));
+                window._memFrecuent = finalFrecuent;
 
                 // ── Plantillas personalizadas ─────────────────────────
-                const localTemplates  = JSON.parse(localStorage.getItem('bgtime_custom_templates') || '[]');
+                const localTemplates  = window._memTemplates || [];
                 const remoteTemplates = (remote.customTemplates || []).filter(t => !deletedTemplates.has(String(t.id)));
                 const remoteTemplateIds = new Set(remoteTemplates.map(t => String(t.id)));
                 // Añadir locales nuevas que no están ni en remoto ni en borradas
@@ -279,7 +284,7 @@
                 );
                 const finalTemplates = [...remoteTemplates, ...soloLocalesTemplates]
                     .sort((a, b) => a.name.localeCompare(b.name));
-                localStorage.setItem('bgtime_custom_templates', JSON.stringify(finalTemplates));
+                window._memTemplates = finalTemplates;
 
                 // Subir estado final a Firestore
                 await setDoc(ref, {
@@ -566,15 +571,14 @@
                     if (!data.sharedBy) return; // solo nos interesan las compartidas por amigos
 
                     const entry = deserializeFromFirestore(data);
-                    const local = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+                    const local = window._memHistory || [];
 
                     // Evitar duplicado
                     if (local.some(e => String(e.id) === String(entry.id))) return;
 
-                    // Insertar en local y guardar
-                    local.unshift(entry);
-                    local.sort((a, b) => b.id - a.id);
-                    localStorage.setItem('bgtime_history', JSON.stringify(local.slice(0, 50)));
+                    // Insertar en caché y guardar
+                    const updated = [entry, ...local].sort((a, b) => b.id - a.id).slice(0, 50);
+                    window._memHistory = updated;
 
                     // Refrescar UI si el historial está abierto
                     if (typeof renderHistoryList === 'function') {
@@ -604,7 +608,12 @@
 
                 document.getElementById('authUserEmail').textContent = user.email || '';
 
-                // Sincronizar historial y ajustes al iniciar sesión
+                // Pre-cargar caché desde localStorage para que la UI no quede vacía mientras sincroniza
+                window._memHistory   = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+                window._memFrecuent  = JSON.parse(localStorage.getItem('bgtime_frecuent_players') || '[]');
+                window._memTemplates = JSON.parse(localStorage.getItem('bgtime_custom_templates') || '[]');
+
+                // Sincronizar historial y ajustes al iniciar sesión (sobrescribirá la caché con datos de Firebase)
                 window._fbSyncHistory();
                 window._fbSyncSettings();
                 window._fbLoadProfile();
@@ -625,6 +634,14 @@
                 // Escuchar historial en tiempo real (para recibir partidas compartidas por amigos)
                 if (typeof window._fbListenHistory === 'function') window._fbListenHistory();
             } else {
+                // Persistir caché en localStorage antes de limpiarla (datos disponibles offline)
+                if (window._memHistory   !== null) localStorage.setItem('bgtime_history',           JSON.stringify(window._memHistory));
+                if (window._memFrecuent  !== null) localStorage.setItem('bgtime_frecuent_players',  JSON.stringify(window._memFrecuent));
+                if (window._memTemplates !== null) localStorage.setItem('bgtime_custom_templates',  JSON.stringify(window._memTemplates));
+                window._memHistory   = null;
+                window._memFrecuent  = null;
+                window._memTemplates = null;
+
                 signedOut.style.display = '';
                 signedIn.style.display  = 'none';
                 const friendsSec = document.getElementById('friendsSection');
