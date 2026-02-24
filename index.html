@@ -892,14 +892,6 @@
         </div>
     </div>
 
-    <div id="playerNameModal" class="confirm-modal-overlay" style="display:none;" onclick="closePlayerNameModal(event)">
-        <div class="confirm-modal-box" style="text-align:left;max-width:340px;">
-            <p class="confirm-modal-title" style="text-align:center;margin-bottom:4px;">Nombre a mostrar</p>
-            <p class="confirm-modal-desc" style="text-align:center;margin-bottom:18px;">Elige cómo aparece este jugador en las estadísticas</p>
-            <div id="playerNameOptions" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;"></div>
-            <button class="confirm-modal-cancel" style="width:100%;margin:0;" onclick="closePlayerNameModal()">Cancelar</button>
-        </div>
-    </div>
 
     <div id="addPlayerModal" class="confirm-modal-overlay" style="display:none;" onclick="if(event.target===this)closeAddPlayerModal()">
         <div class="confirm-modal-box" style="max-width:360px;">
@@ -923,17 +915,6 @@
         </div>
     </div>
 
-    <div id="mergePlayerModal" class="confirm-modal-overlay" style="display:none;" onclick="closeMergePlayerModal(event)">
-        <div class="confirm-modal-box" style="text-align:left;max-width:340px;padding-bottom:24px;">
-            <p class="confirm-modal-title" style="text-align:center;margin-bottom:4px;" id="mergeModalTitle">Fusionar jugadores</p>
-            <p class="confirm-modal-desc" style="text-align:center;margin-bottom:18px;" id="mergeModalDesc">Selecciona el primer jugador</p>
-            <div id="mergePlayerOptions" style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto;margin-bottom:20px;"></div>
-            <div style="display:flex;gap:10px;">
-                <button class="confirm-modal-cancel" style="flex:1;margin:0;" onclick="closeMergePlayerModal()">Cancelar</button>
-                <button id="mergeConfirmBtn" class="confirm-modal-ok" style="flex:1;margin:0;background:var(--btn-primary-gradient);box-shadow:none;display:none;" onclick="confirmMerge()">Fusionar</button>
-            </div>
-        </div>
-    </div>
 
     <script src="js/app.js"></script>
     <ul id="libraryDropdown" class="library-dropdown" style="display:none;"></ul>

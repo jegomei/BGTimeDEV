@@ -4181,14 +4181,10 @@
             return `<div class="stats-placeholder">${placeholderSvg}<p><strong>${tabLabels[tab]}</strong><br>Próximamente aquí verás tus estadísticas.<br><span style="font-size:11px;opacity:0.5;">${history.length} partida${history.length !== 1 ? 's' : ''} guardada${history.length !== 1 ? 's' : ''}</span></p></div>`;
         }
 
-        // Devuelve la key resuelta y el nombre a mostrar para cualquier nombre crudo del historial
+        // Devuelve la key y el nombre a mostrar para cualquier nombre crudo del historial
         function resolvePlayer(rawName) {
-            const prefs  = JSON.parse(localStorage.getItem('bgtime_playernames') || '{}');
-            const merges = JSON.parse(localStorage.getItem('bgtime_merges') || '{}');
-            const key    = resolveKey(normStr(rawName.trim()), merges);
-            // Nombre preferido si existe, si no el rawName original
-            const display = prefs[key] || rawName.trim();
-            return { key, display };
+            const key = normStr(rawName.trim());
+            return { key, display: rawName.trim() };
         }
 
         function buildStatsVS(history) {
@@ -4353,21 +4349,17 @@
         };
 
         function buildStatsPlayer(history) {
-            const prefs  = JSON.parse(localStorage.getItem('bgtime_playernames') || '{}');
-            const merges = JSON.parse(localStorage.getItem('bgtime_merges') || '{}');
-
             // Agrupar por jugador: partidas, victorias y tiempo total
             const playerMap = {};
             history.forEach(entry => {
                 if (!entry.results || entry.results.length === 0) return;
                 const winner = entry.results[0].player;
                 entry.results.forEach(r => {
-                    const rawKey = normStr(r.player.trim());
-                    const key    = resolveKey(rawKey, merges);
+                    const key = normStr(r.player.trim());
                     if (!playerMap[key]) playerMap[key] = { key, names: new Set(), games: 0, wins: 0, totalDevPct: 0, timedGames: 0 };
                     playerMap[key].names.add(r.player.trim());
                     playerMap[key].games++;
-                    if (resolveKey(normStr(winner.trim()), merges) === key) playerMap[key].wins++;
+                    if (normStr(winner.trim()) === key) playerMap[key].wins++;
                 });
                 // Acumular tiempos si los hay
                 if (entry.usedTimer && Array.isArray(entry.playerTotalTimes) && Array.isArray(entry.orderedPlayers)) {
@@ -4377,8 +4369,7 @@
                     if (total > 0 && n > 0) {
                         const mean = total / n;
                         entry.orderedPlayers.forEach((name, i) => {
-                            const rawKey = normStr(name.trim());
-                            const key    = resolveKey(rawKey, merges);
+                            const key = normStr(name.trim());
                             const t = times[i] || 0;
                             if (playerMap[key] && t > 0) {
                                 const devPct = ((t - mean) / mean) * 100;
@@ -4450,14 +4441,7 @@
             const rows = visiblePlayers.map((p, i) => {
                 const winRate = Math.round((p.wins / p.games) * 100);
                 const namesArr = [...p.names].sort();
-                const displayName = prefs[p.key] && namesArr.includes(prefs[p.key])
-                    ? prefs[p.key]
-                    : namesArr.reduce((a, b) => b.length > a.length ? b : a);
-                const hasVariants = namesArr.length > 1;
-                const variantsAttr = hasVariants ? `data-variants="${encodeURIComponent(JSON.stringify(namesArr))}" data-key="${p.key}" data-preferred="${encodeURIComponent(displayName)}"` : '';
-                const editIcon = hasVariants
-                    ? `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;flex-shrink:0;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`
-                    : '';
+                const displayName = namesArr.reduce((a, b) => b.length > a.length ? b : a);
 
                 // Avatar circular si el jugador es yo o un amigo conectado
                 const profileKey = displayName.trim().toLowerCase();
@@ -4485,13 +4469,13 @@
                     rightHtml = `<div class="stats-game-count"><span class="stats-game-count-num">${p.games}</span><span class="stats-game-count-label">${p.games === 1 ? 'partida' : 'partidas'}</span></div>`;
                 }
 
-                const subInfo = `${p.wins} victoria${p.wins !== 1 ? 's' : ''}${sort === 'time' ? ` · ${p.games} partida${p.games !== 1 ? 's' : ''}` : ''}${hasVariants ? ` · <em style="opacity:0.6">${namesArr.length} variantes</em>` : ''}`;
+                const subInfo = `${p.wins} victoria${p.wins !== 1 ? 's' : ''}${sort === 'time' ? ` · ${p.games} partida${p.games !== 1 ? 's' : ''}` : ''}`;
 
                 return `
-                    <div class="stats-player-row${hasVariants ? ' stats-player-row--clickable' : ''}" ${variantsAttr} ${hasVariants ? `onclick="openPlayerNameModal(this)"` : ''} style="${hasVariants ? 'cursor:pointer;' : ''}">
+                    <div class="stats-player-row">
                         ${avatarHtml}
                         <div class="stats-player-info">
-                            <div class="stats-player-name" style="display:flex;align-items:center;gap:6px;">${displayName}${editIcon}</div>
+                            <div class="stats-player-name">${displayName}</div>
                             <div class="stats-player-sub">${subInfo}</div>
                         </div>
                         ${rightHtml}
@@ -4504,190 +4488,9 @@
                 ? `<button class="secondary" onclick="statsShowMorePlayers()" style="width:100%;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px;">${svgChevronP}Ver ${remainingP} jugador${remainingP !== 1 ? 'es' : ''} más</button>`
                 : '';
 
-            return `<div class="stats-player-list">${sortBar}${rows}${showMoreBtnPlayer}<div style="padding:12px 4px 4px;"><button onclick="openMergePlayerModal()" style="width:100%;background:var(--table-row-alt);border:1.5px dashed var(--border-color);color:var(--text-secondary);border-radius:12px;padding:12px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;min-height:unset;box-shadow:none;margin:0;"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>Fusionar dos jugadores</button></div></div>`;
+            return `<div class="stats-player-list">${sortBar}${rows}${showMoreBtnPlayer}</div>`;
         }
 
-        function openPlayerNameModal(row) {
-            const key = row.dataset.key;
-            const variants = JSON.parse(decodeURIComponent(row.dataset.variants));
-            const prefs = JSON.parse(localStorage.getItem('bgtime_playernames') || '{}');
-            const current = prefs[key] && variants.includes(prefs[key]) ? prefs[key] : decodeURIComponent(row.dataset.preferred);
-
-            const container = document.getElementById('playerNameOptions');
-            container.innerHTML = '';
-            variants.forEach(name => {
-                const el = document.createElement('div');
-                el.className = 'player-name-option' + (name === current ? ' selected' : '');
-                el.innerHTML = `
-                    <span>${name}</span>
-                    <span class="option-check">
-                        ${name === current ? '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
-                    </span>
-                `;
-                el.addEventListener('click', () => selectPlayerName(key, name, el));
-                container.appendChild(el);
-            });
-
-            document.getElementById('playerNameModal').style.display = 'flex';
-        }
-
-        function selectPlayerName(key, name, el) {
-            // Actualizar UI del modal
-            document.querySelectorAll('#playerNameOptions .player-name-option').forEach(opt => {
-                opt.classList.remove('selected');
-                opt.querySelector('.option-check').innerHTML = '';
-            });
-            el.classList.add('selected');
-            el.querySelector('.option-check').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-
-            // Guardar preferencia
-            const prefs = JSON.parse(localStorage.getItem('bgtime_playernames') || '{}');
-            prefs[key] = name;
-            localStorage.setItem('bgtime_playernames', JSON.stringify(prefs));
-
-            // Cerrar modal y refrescar estadísticas
-            document.getElementById('playerNameModal').style.display = 'none';
-            const card = document.getElementById('statsCard-player');
-            if (card && card.classList.contains('open')) {
-                const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
-                card.innerHTML = buildStatsPlayer(history);
-            }
-        }
-
-        function closePlayerNameModal(e) {
-            if (e && e.target !== document.getElementById('playerNameModal')) return;
-            document.getElementById('playerNameModal').style.display = 'none';
-        }
-
-        // ── FUSIÓN DE JUGADORES ────────────────────────────────────
-        let _mergeStep = 0;      // 1 = eligiendo A, 2 = eligiendo B
-        let _mergeKeyA = null;
-        let _mergeNameA = null;
-        let _mergeKeyB = null;
-        let _mergeNameB = null;
-        let _mergePlayers = [];  // lista completa de jugadores para el modal
-
-        function resolveKey(key, merges) {
-            // Sigue la cadena de fusiones hasta la raíz
-            const visited = new Set();
-            while (merges[key] && !visited.has(key)) {
-                visited.add(key);
-                key = merges[key];
-            }
-            return key;
-        }
-
-        function openMergePlayerModal() {
-            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
-            const prefs   = JSON.parse(localStorage.getItem('bgtime_playernames') || '{}');
-            const merges  = JSON.parse(localStorage.getItem('bgtime_merges') || '{}');
-
-            // Construir lista de jugadores resolviendo fusiones
-            const playerMap = {};
-            history.forEach(entry => {
-                if (!entry.results) return;
-                entry.results.forEach(r => {
-                    const rawKey = normStr(r.player.trim());
-                    const key    = resolveKey(rawKey, merges);
-                    if (!playerMap[key]) playerMap[key] = { key, names: new Set() };
-                    playerMap[key].names.add(r.player.trim());
-                });
-            });
-
-            _mergePlayers = Object.values(playerMap).map(p => {
-                const namesArr = [...p.names].sort();
-                const display  = prefs[p.key] && namesArr.includes(prefs[p.key])
-                    ? prefs[p.key]
-                    : namesArr.reduce((a, b) => b.length > a.length ? b : a);
-                return { key: p.key, display, namesArr };
-            }).sort((a, b) => a.display.localeCompare(b.display));
-
-            _mergeStep  = 1;
-            _mergeKeyA  = null;
-            _mergeKeyB  = null;
-            _mergeNameA = null;
-            _mergeNameB = null;
-
-            document.getElementById('mergeModalTitle').textContent = 'Fusionar jugadores';
-            document.getElementById('mergeModalDesc').textContent  = 'Elige el jugador principal (el que quedará)';
-            document.getElementById('mergeConfirmBtn').style.display = 'none';
-            _renderMergeOptions(null);
-            document.getElementById('mergePlayerModal').style.display = 'flex';
-        }
-
-        function _renderMergeOptions(excludeKey) {
-            const container = document.getElementById('mergePlayerOptions');
-            container.innerHTML = '';
-            _mergePlayers.forEach(p => {
-                if (p.key === excludeKey) return;
-                const el = document.createElement('div');
-                el.className = 'player-name-option';
-                el.innerHTML = `
-                    <div>
-                        <div style="font-size:15px;font-weight:700;">${p.display}</div>
-                        ${p.namesArr.length > 1 ? `<div style="font-size:11px;opacity:0.55;margin-top:2px;">${p.namesArr.join(', ')}</div>` : ''}
-                    </div>
-                    <span class="option-check"></span>
-                `;
-                el.addEventListener('click', () => _onMergeOptionClick(p, el));
-                container.appendChild(el);
-            });
-        }
-
-        function _onMergeOptionClick(p, el) {
-            if (_mergeStep === 1) {
-                _mergeKeyA  = p.key;
-                _mergeNameA = p.display;
-                _mergeStep  = 2;
-
-                document.getElementById('mergeModalTitle').textContent = `"${_mergeNameA}" +…`;
-                document.getElementById('mergeModalDesc').textContent  = 'Ahora elige el jugador a fusionar con él (desaparecerá como entrada separada)';
-                document.getElementById('mergeConfirmBtn').style.display = 'none';
-                _renderMergeOptions(_mergeKeyA);
-
-            } else if (_mergeStep === 2) {
-                _mergeKeyB  = p.key;
-                _mergeNameB = p.display;
-
-                // Marcar selección visualmente
-                document.querySelectorAll('#mergePlayerOptions .player-name-option').forEach(o => {
-                    o.classList.remove('selected');
-                    o.querySelector('.option-check').innerHTML = '';
-                });
-                el.classList.add('selected');
-                el.querySelector('.option-check').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-
-                document.getElementById('mergeModalTitle').textContent = 'Confirmar fusión';
-                document.getElementById('mergeModalDesc').textContent  = `"${_mergeNameB}" pasará a contarse como "${_mergeNameA}"`;
-                document.getElementById('mergeConfirmBtn').style.display = '';
-            }
-        }
-
-        function confirmMerge() {
-            if (!_mergeKeyA || !_mergeKeyB) return;
-            const merges = JSON.parse(localStorage.getItem('bgtime_merges') || '{}');
-            // keyB apunta a keyA (y cualquier cosa que apuntaba a keyB también)
-            merges[_mergeKeyB] = _mergeKeyA;
-            // Redirigir cualquier fusión anterior que apuntara a keyB
-            Object.keys(merges).forEach(k => {
-                if (merges[k] === _mergeKeyB) merges[k] = _mergeKeyA;
-            });
-            localStorage.setItem('bgtime_merges', JSON.stringify(merges));
-
-            document.getElementById('mergePlayerModal').style.display = 'none';
-
-            // Refrescar estadísticas
-            const card = document.getElementById('statsCard-player');
-            if (card && card.classList.contains('open')) {
-                const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
-                card.innerHTML = buildStatsPlayer(history);
-            }
-        }
-
-        function closeMergePlayerModal(e) {
-            if (e && e.target !== document.getElementById('mergePlayerModal')) return;
-            document.getElementById('mergePlayerModal').style.display = 'none';
-        }
 
         function buildStatsGame(history) {
             const gameMap = {};
