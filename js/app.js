@@ -3191,7 +3191,7 @@
         // ── Helpers de datos (localStorage cuando deslogueado, caché en memoria cuando logueado) ──
         function getHistory() {
             if (window._fbIsLoggedIn?.()) return window._memHistory || [];
-            return getHistory();
+            return JSON.parse(localStorage.getItem('bgtime_history') || '[]');
         }
         function saveHistory(arr) {
             if (window._fbIsLoggedIn?.()) { window._memHistory = arr; }
@@ -3199,7 +3199,7 @@
         }
         function removeHistory() {
             window._memHistory = [];
-            removeHistory();
+            localStorage.removeItem('bgtime_history');
         }
         function getFrecuentPlayers() {
             if (window._fbIsLoggedIn?.()) return window._memFrecuent || [];
