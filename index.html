@@ -4674,7 +4674,7 @@
             </div>
 
             <!-- Jugadores habituales -->
-            <div class="settings-section">
+            <div class="settings-section" style="display:none;">
                 <h2 style="display:flex;align-items:center;"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:8px;flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Jugadores habituales</h2>
                 <p class="settings-desc">Aparecerán como accesos rápidos al añadir jugadores.</p>
                 <div id="frecuentPlayersList" class="frecuent-list"></div>
@@ -4871,7 +4871,9 @@
             </div>
             <p class="confirm-modal-title">Añadir jugador</p>
             <p class="confirm-modal-desc" style="margin-bottom:16px;">Escribe el nombre del nuevo jugador</p>
-            <input type="text" id="addPlayerNameInput" placeholder="Nombre del jugador" style="width:100%;padding:12px 16px;border-radius:8px;border:2px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:16px;font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:20px;" />
+            <input type="text" id="addPlayerNameInput" placeholder="Nombre del jugador" style="width:100%;padding:12px 16px;border-radius:8px;border:2px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:16px;font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:12px;" />
+            <!-- Chips de jugadores habituales del historial -->
+            <div id="addPlayerModalChips" class="frecuent-chips-row" style="margin-bottom:20px;justify-content:flex-start;"></div>
             <div class="confirm-modal-actions">
                 <button class="confirm-modal-cancel" onclick="closeAddPlayerModal()">Cancelar</button>
                 <button class="confirm-modal-ok" onclick="confirmAddPlayer()" style="background:#10b981;box-shadow:0 3px 10px rgba(16,185,129,0.35);">Añadir</button>
@@ -8198,11 +8200,7 @@
             // Filtrar jugadores que ya están en la partida
             const availableConnected = allConnected.filter(f => !playersInGame.has(f.nickname));
 
-            // Nombres de amigos disponibles para excluirlos de habituales (ya aparecen en su sección)
-            const connectedNames = new Set(availableConnected.map(f => f.nickname));
-            const habituales = list.filter(n => !connectedNames.has(n) && !playersInGame.has(n));
-
-            if (habituales.length === 0 && availableConnected.length === 0) {
+            if (availableConnected.length === 0) {
                 row.style.display = 'none';
                 return;
             }
@@ -8211,25 +8209,13 @@
             let html = '';
 
             // Sección: amigos (con degradado de color)
-            if (availableConnected.length > 0) {
-                html += `<span class="frecuent-chips-section-label">Amigos</span>`;
-                html += availableConnected.map(f => {
-                    const name = f.nickname.replace(/'/g, "\'");
-                    const c1 = f.color1 || '#667eea';
-                    const c2 = f.color2 || '#764ba2';
-                    return `<button class="connected-chip" style="background:linear-gradient(135deg,${c1},${c2});" onclick="addConnectedChipPlayer('${name}','${c1}','${c2}')">${f.nickname}</button>`;
-                }).join('');
-            }
-
-            // Sección: jugadores habituales normales
-            if (habituales.length > 0) {
-                if (availableConnected.length > 0) {
-                    html += `<span class="frecuent-chips-section-label" style="margin-top:8px;">Habituales</span>`;
-                }
-                html += habituales.map(name =>
-                    `<button class="frecuent-chip" onclick="addChipPlayer('${name.replace(/'/g, "\'")}')">${name}</button>`
-                ).join('');
-            }
+            html += `<span class="frecuent-chips-section-label">Amigos</span>`;
+            html += availableConnected.map(f => {
+                const name = f.nickname.replace(/'/g, "\'");
+                const c1 = f.color1 || '#667eea';
+                const c2 = f.color2 || '#764ba2';
+                return `<button class="connected-chip" style="background:linear-gradient(135deg,${c1},${c2});" onclick="addConnectedChipPlayer('${name}','${c1}','${c2}')">${f.nickname}</button>`;
+            }).join('');
 
             row.innerHTML = html;
         }
@@ -8300,6 +8286,64 @@
                     confirmAddPlayer();
                 }
             };
+
+            // Renderizar chips de jugadores habituales del historial
+            renderAddPlayerModalChips();
+        }
+
+        function renderAddPlayerModalChips() {
+            const chipsContainer = document.getElementById('addPlayerModalChips');
+            if (!chipsContainer) return;
+
+            // Obtener jugadores del historial (únicos)
+            const history = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
+            const playersFromHistory = new Set();
+            history.forEach(entry => {
+                (entry.results || []).forEach(r => {
+                    if (r.player && r.player.trim()) {
+                        playersFromHistory.add(r.player.trim());
+                    }
+                });
+            });
+
+            // Obtener amigos (incluyendo usuario actual)
+            const connected = (typeof _friends !== 'undefined') ? _friends.filter(f => f.nickname) : [];
+            const friendNames = new Set(connected.map(f => f.nickname));
+            
+            // Añadir usuario actual a la lista de amigos
+            const currentProfile = window._currentProfile;
+            if (currentProfile && currentProfile.nickname) {
+                friendNames.add(currentProfile.nickname);
+            }
+
+            // Obtener jugadores ya en la partida
+            const container = document.getElementById('playersContainer');
+            const playersInGame = new Set(
+                Array.from(container.querySelectorAll('.player-name'))
+                    .map(i => i.value.trim())
+                    .filter(Boolean)
+            );
+
+            // Filtrar: solo jugadores del historial que NO son amigos y NO están en la partida
+            const availablePlayers = Array.from(playersFromHistory).filter(name => 
+                !friendNames.has(name) && !playersInGame.has(name)
+            );
+
+            if (availablePlayers.length === 0) {
+                chipsContainer.style.display = 'none';
+                return;
+            }
+
+            chipsContainer.style.display = 'flex';
+            chipsContainer.innerHTML = availablePlayers.map(name =>
+                `<button class="frecuent-chip" onclick="addPlayerFromModalChip('${name.replace(/'/g, "\\'")}')">${name}</button>`
+            ).join('');
+        }
+
+        function addPlayerFromModalChip(name) {
+            const input = document.getElementById('addPlayerNameInput');
+            input.value = name;
+            confirmAddPlayer();
         }
 
         function closeAddPlayerModal() {
