@@ -5279,36 +5279,25 @@
             // Inicializar el contenedor de jugadores oculto si está vacío
             const container = document.getElementById('playersContainer');
             if (container.children.length === 0) {
-                // Crear dos filas por defecto para el sistema interno
-                const defaultColors = ['#e74c3c', '#3498db'];
-                for (let i = 0; i < 2; i++) {
+                // Rellenar jugador 1 con el perfil del usuario si está logueado
+                const profile = window._currentProfile;
+                if (profile && profile.nickname) {
                     const div = document.createElement('div');
                     div.className = 'player-input-row';
+                    const defaultColor = '#e74c3c';
                     div.innerHTML = `
-                        <input type="text" placeholder="Nombre del jugador ${i + 1}" class="player-name">
-                        <button class="player-color-btn" style="background:${defaultColors[i]};" data-color="${defaultColors[i]}" onclick="openColorPicker(this)" title="Color del jugador"></button>
+                        <input type="text" placeholder="Nombre del jugador 1" class="player-name" value="${profile.nickname}">
+                        <button class="player-color-btn" style="background:${defaultColor};" data-color="${defaultColor}" onclick="openColorPicker(this)" title="Color del jugador"></button>
                         <button onclick="removePlayerInput(this)" class="remove-player-btn" style="display:none;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                     `;
                     container.appendChild(div);
-                }
-            }
-
-            // Rellenar jugador 1 con el perfil del usuario si está logueado y el campo está vacío
-            const profile = window._currentProfile;
-            if (profile && profile.nickname) {
-                const firstRow = document.querySelector('#playersContainer .player-input-row');
-                if (firstRow) {
-                    const firstInput = firstRow.querySelector('.player-name');
-                    const firstColorBtn = firstRow.querySelector('.player-color-btn');
-                    // Solo rellenar si está vacío (no sobreescribir si el usuario ya escribió algo)
-                    if (firstInput && firstInput.value.trim() === '') {
-                        firstInput.value = profile.nickname;
-                        // Aplicar degradado del perfil y bloquear el selector de color
-                        if (firstColorBtn && profile.color1 && profile.color2) {
-                            applyProfileGradientToBtn(firstColorBtn, profile.color1, profile.color2);
-                        }
+                    // Aplicar degradado del perfil si está disponible
+                    const colorBtn = div.querySelector('.player-color-btn');
+                    if (colorBtn && profile.color1 && profile.color2) {
+                        applyProfileGradientToBtn(colorBtn, profile.color1, profile.color2);
                     }
                 }
+                // No crear la segunda fila vacía automáticamente
             }
 
             showScreen('playersScreen');
@@ -8411,16 +8400,12 @@
             const container = document.getElementById('playersContainer');
             const existing = Array.from(container.querySelectorAll('.player-name')).map(i => i.value.trim());
             if (existing.includes(name)) return;
-            const emptyInput = Array.from(container.querySelectorAll('.player-name')).find(i => i.value.trim() === '');
-            if (emptyInput) {
-                emptyInput.value = name;
-                updateRemoveButtons(true); // Skip pills update, we'll do it once at the end
-            } else {
-                addPlayerInput();
-                const rows = container.querySelectorAll('.player-name');
-                rows[rows.length - 1].value = name;
-                updateRemoveButtons(true); // Skip pills update, we'll do it once at the end
-            }
+            
+            // Siempre crear una nueva fila
+            addPlayerInput();
+            const rows = container.querySelectorAll('.player-name');
+            rows[rows.length - 1].value = name;
+            updateRemoveButtons(true); // Skip pills update, we'll do it once at the end
             updatePlayerPills(); // Update pills once
         }
 
@@ -8437,17 +8422,11 @@
                 : !usedColors.has(color2.toUpperCase()) ? color2
                 : color1; // si ambos ocupados, usar primario igualmente
 
-            const emptyInput = Array.from(container.querySelectorAll('.player-name')).find(i => i.value.trim() === '');
-            let targetRow;
-            if (emptyInput) {
-                emptyInput.value = name;
-                targetRow = emptyInput.closest('.player-input-row');
-            } else {
-                addPlayerInput();
-                const rows = container.querySelectorAll('.player-input-row');
-                targetRow = rows[rows.length - 1];
-                targetRow.querySelector('.player-name').value = name;
-            }
+            // Siempre crear una nueva fila
+            addPlayerInput();
+            const rows = container.querySelectorAll('.player-input-row');
+            const targetRow = rows[rows.length - 1];
+            targetRow.querySelector('.player-name').value = name;
 
             // Aplicar el degradado del perfil y bloquear el botón
             const colorBtn = targetRow.querySelector('.player-color-btn');
@@ -8456,6 +8435,7 @@
             }
             updateRemoveButtons(true); // Skip pills update, we'll do it once at the end
             updatePlayerPills(); // Update pills once
+            renderFrecuentChips(); // Actualizar chips para ocultar el jugador recién añadido
         }
 
         // ── Modal para añadir jugador nuevo ──────────────────────────
