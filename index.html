@@ -7740,14 +7740,28 @@
 
         function formatRelativeDate(dateStr) {
             if (!dateStr) return dateStr;
-            // El formato guardado es DD/MM/AA
-            const parts = dateStr.split('/');
-            if (parts.length !== 3) return dateStr;
-            const day   = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10) - 1;
-            const year  = 2000 + parseInt(parts[2], 10);
-            const date  = new Date(year, month, day);
-            if (isNaN(date.getTime())) return dateStr;
+            
+            let date;
+            
+            // Si es un número (timestamp), convertir a Date
+            if (typeof dateStr === 'number') {
+                date = new Date(dateStr);
+                if (isNaN(date.getTime())) return String(dateStr);
+            } 
+            // Si es un string con formato DD/MM/AA
+            else if (typeof dateStr === 'string') {
+                const parts = dateStr.split('/');
+                if (parts.length !== 3) return dateStr;
+                const day   = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const year  = 2000 + parseInt(parts[2], 10);
+                date = new Date(year, month, day);
+                if (isNaN(date.getTime())) return dateStr;
+            }
+            // Si no es ni número ni string, devolver tal cual
+            else {
+                return String(dateStr);
+            }
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -7757,6 +7771,12 @@
             if (diffDays === 0) return 'Hoy';
             if (diffDays === 1) return 'Ayer';
             if (diffDays <= 7) return `Hace ${diffDays} días`;
+            
+            // Si era un timestamp, devolver formato legible
+            if (typeof dateStr === 'number') {
+                return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            }
+            
             return dateStr;
         }
 
