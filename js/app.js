@@ -636,62 +636,6 @@
             document.querySelectorAll('.color-palette-overlay').forEach(p => p.remove());
         }
 
-        function startGame(destination) {
-            const playerRows = document.querySelectorAll('#playersContainer .player-input-row');
-            
-            const players = [];
-            const colors = [];
-            const gradients = [];
-            
-            playerRows.forEach(row => {
-                const name = row.querySelector('.player-name').value.trim();
-                const btn = row.querySelector('.player-color-btn');
-                const color = btn.dataset.color;
-                const gradient = btn.dataset.gradient || null; // null si no es perfil
-                if (name !== '') {
-                    players.push(name);
-                    colors.push(color);
-                    gradients.push(gradient);
-                }
-            });
-
-            if (players.length < 2) {
-                document.getElementById('playersError').textContent = 'Necesitas al menos 2 jugadores';
-                return;
-            } else {
-                document.getElementById('playersError').textContent = '';
-            }
-
-            gameData.players = players;
-            gameData.playerColors = colors;
-            gameData.playerGradients = gradients;
-
-            // Aplicar plantilla si hay una seleccionada
-            const templateSelect = document.getElementById('templateSelect');
-            const templateIndex = templateSelect.value;
-            const allTemplates = window._allTemplates || (typeof GAME_TEMPLATES !== 'undefined' ? GAME_TEMPLATES : []);
-            const hasTemplate = templateIndex !== '' && allTemplates[parseInt(templateIndex)] != null;
-            if (hasTemplate) {
-                applyTemplate(allTemplates[parseInt(templateIndex)]);
-            }
-
-            if (destination === 'scoring') {
-                gameData.usedTimer = false;
-                document.getElementById('btnVolverTimer').style.display = 'none';
-                if (hasTemplate) {
-                    // Saltar configuración e ir directo a la tabla de puntuación
-                    goToScoringScreenWithTemplate();
-                } else {
-                    document.getElementById('gameDisplayScoring').textContent = gameData.gameName;
-                    showScreen('scoringSetupScreen');
-                }
-            } else {
-                document.getElementById('gameDisplay').textContent = gameData.gameName;
-                document.getElementById('playersDisplay').textContent = players.join(', ');
-                showScreen('timerChoiceScreen');
-            }
-        }
-
         function goToScoringScreenWithTemplate() {
             document.getElementById('gameDisplayFinal').textContent = gameData.gameName;
             const container = document.getElementById('scoringTableContainer');
@@ -718,26 +662,6 @@
             }
 
             showScreen('scoringScreen');
-        }
-
-        function startTimer() {
-            const mode = document.querySelector('input[name="timerMode"]:checked').value;
-            gameData.timerMode = mode;
-
-            if (mode === 'per_turn') {
-                gameData.timePerPlayer = parseInt(document.getElementById('timePerPlayer').value);
-            } else {
-                gameData.timePerPlayer = parseInt(document.getElementById('timePerPlayerChess').value) * 60;
-            }
-
-            gameData.orderedPlayers = [...gameData.players];
-            gameData.orderedColors = [...gameData.playerColors];
-            gameData.orderedGradients = [...(gameData.playerGradients || [])];
-            gameData.reorderEachRound = document.getElementById('reorderEachRound').checked;
-
-            renderOrderList();
-            showScreen('timerScreen');
-            document.getElementById('orderOverlay').classList.add('visible');
         }
 
         function renderOrderList() {
