@@ -8180,10 +8180,33 @@
                     .filter(Boolean)
             );
 
-            // Filtrar jugadores conectados que ya están en la partida
-            const availableConnected = connected.filter(f => !playersInGame.has(f.nickname));
+            console.log('[DEBUG] Jugadores en partida:', Array.from(playersInGame));
 
-            // Nombres de conectados disponibles para excluirlos de habituales (ya aparecen en su sección)
+            // Crear lista completa de amigos (incluye al usuario actual si está logeado)
+            let allConnected = [...connected];
+            const currentProfile = window._currentProfile;
+            if (currentProfile && currentProfile.nickname) {
+                console.log('[DEBUG] Usuario actual:', currentProfile.nickname);
+                // Verificar que el usuario actual no esté ya en la lista de amigos
+                const isAlreadyInFriends = connected.some(f => f.nickname === currentProfile.nickname);
+                if (!isAlreadyInFriends) {
+                    allConnected.unshift({
+                        nickname: currentProfile.nickname,
+                        color1: currentProfile.color1 || '#667eea',
+                        color2: currentProfile.color2 || '#764ba2'
+                    });
+                    console.log('[DEBUG] Usuario actual añadido a allConnected');
+                }
+            }
+
+            console.log('[DEBUG] Total amigos (incluido usuario):', allConnected.map(f => f.nickname));
+
+            // Filtrar jugadores que ya están en la partida
+            const availableConnected = allConnected.filter(f => !playersInGame.has(f.nickname));
+
+            console.log('[DEBUG] Amigos disponibles (no en partida):', availableConnected.map(f => f.nickname));
+
+            // Nombres de amigos disponibles para excluirlos de habituales (ya aparecen en su sección)
             const connectedNames = new Set(availableConnected.map(f => f.nickname));
             const habituales = list.filter(n => !connectedNames.has(n) && !playersInGame.has(n));
 
@@ -8195,7 +8218,7 @@
 
             let html = '';
 
-            // Sección: jugadores conectados (con degradado de color)
+            // Sección: amigos (con degradado de color)
             if (availableConnected.length > 0) {
                 html += `<span class="frecuent-chips-section-label">Amigos</span>`;
                 html += availableConnected.map(f => {
