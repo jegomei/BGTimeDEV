@@ -2436,6 +2436,17 @@
             box-shadow: 0 4px 12px rgba(16,185,129,0.3);
             background: rgba(16,185,129,0.1);
         }
+        .player-pill.add-player.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            border-color: var(--text-secondary);
+            color: var(--text-secondary);
+            box-shadow: none;
+        }
+        .player-pill.add-player.disabled:hover {
+            box-shadow: none;
+            background: var(--bg-secondary);
+        }
         .player-pill-name {
             flex: 1;
             line-height: 1;
@@ -4140,8 +4151,8 @@
             <!-- Selected Players Pills -->
             <div class="selected-players-section">
                 <div class="selected-players-label">En esta partida:</div>
-                <div id="selectedPlayersPills" class="selected-players-container empty">
-                    Añade jugadores para empezar
+                <div id="selectedPlayersPills" class="selected-players-container">
+                    <!-- Se llenará con updatePlayerPills() -->
                 </div>
             </div>
             
@@ -5444,9 +5455,17 @@
                 container.appendChild(pill);
             });
 
-            // Agregar pill de "+ Añadir" con borde verde
+            // SIEMPRE agregar pill de "+ Añadir"
+            // Verificar si hay límite de jugadores alcanzado
+            const templateSelect = document.getElementById('templateSelect');
+            const templateIndex = templateSelect ? templateSelect.value : '';
+            const allTemplates = window._allTemplates || (typeof GAME_TEMPLATES !== 'undefined' ? GAME_TEMPLATES : []);
+            const template = (templateIndex !== '' && allTemplates[parseInt(templateIndex)]) ? allTemplates[parseInt(templateIndex)] : null;
+            const maxPlayers = template && template.maxPlayers ? template.maxPlayers : Infinity;
+            const limitReached = players.length >= maxPlayers;
+
             const addPill = document.createElement('div');
-            addPill.className = 'player-pill add-player';
+            addPill.className = `player-pill add-player ${limitReached ? 'disabled' : ''}`;
             addPill.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                     <line x1="12" y1="5" x2="12" y2="19"/>
@@ -5454,9 +5473,13 @@
                 </svg>
                 <span class="player-pill-name">Añadir</span>
             `;
-            addPill.addEventListener('click', () => {
-                showAddPlayerModal();
-            });
+            
+            if (!limitReached) {
+                addPill.addEventListener('click', () => {
+                    showAddPlayerModal();
+                });
+            }
+            
             container.appendChild(addPill);
         }
 
@@ -7855,6 +7878,9 @@
             // Poblar la Biblioteca con las plantillas de games.js + plantillas propias
             rebuildLibrary();
             renderFavoritePills();
+
+            // Inicializar píldoras de jugadores (mostrará el botón +Añadir desde el inicio)
+            updatePlayerPills();
 
             // Detectar importación desde enlace compartido ANTES de restaurar estado
             checkUrlImport();
