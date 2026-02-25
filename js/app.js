@@ -280,7 +280,7 @@
 
             _currentScreenId = screenId;
             setOverlayBtnState(screenId);
-            if (_gameInProgress && screenId !== 'statsScreen' && screenId !== 'settingsScreen') {
+            if (_gameInProgress && screenId !== 'statsScreen' && screenId !== 'settingsScreen' && screenId !== 'setupScreen') {
                 _activeGameScreenId = screenId;
             }
 
@@ -296,14 +296,6 @@
             saveAppState();
         }
 
-        // Pantalla 1: Setup
-        document.getElementById('librarySearch').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && e.target.value.trim().length > 0) {
-                scheduleCloseLibrary();
-                goToPlayersScreen();
-            }
-        });
-
         // Aplica el degradado de perfil a un botón de color y lo bloquea
         function applyProfileGradientToBtn(btn, color1, color2) {
             const grad = `linear-gradient(135deg, ${color1}, ${color2})`;
@@ -316,25 +308,27 @@
         }
 
         function goToPlayersScreen() {
-            const rawInput = document.getElementById('librarySearch').value.trim();
-            // If a template is selected, the label includes emoji — extract just the name
             const templateIndex = document.getElementById('templateSelect').value;
-            let gameName = rawInput;
+            let gameName = '';
             if (templateIndex !== '' && typeof _libraryIndex !== 'undefined') {
                 const entry = _libraryIndex.find(t => t.index == templateIndex);
                 if (entry) gameName = entry.name;
             }
-            // Sync hidden field
+            if (!gameName) gameName = document.getElementById('gameName').value.trim();
             document.getElementById('gameName').value = gameName;
             
             if (!gameName) {
-                document.getElementById('gameNameError').textContent = 'Por favor, ingresa el nombre del juego';
+                const errEl = document.getElementById('gameNameError');
+                errEl.textContent = 'Por favor, ingresa el nombre del juego';
+                errEl.style.display = '';
                 return;
             }
-            
+
             gameData.gameName = gameName;
             document.getElementById('gameNameTitle').textContent = gameName;
-            document.getElementById('gameNameError').textContent = '';
+            const errEl = document.getElementById('gameNameError');
+            errEl.textContent = '';
+            errEl.style.display = 'none';
             
             renderFrecuentChips();
 
@@ -2125,26 +2119,12 @@
             document.body.removeChild(textArea);
         }
 
-        const SAFE_SCREENS = new Set(["setupScreen", "resultsScreen", "historyScreen"]);
+        function goToLibrary() {
+            showScreen('setupScreen');
+        }
 
         function resetGame() {
-            const activeScreen = document.querySelector(".screen.active");
-            const screenId = activeScreen ? activeScreen.id : "setupScreen";
-            if (!SAFE_SCREENS.has(screenId)) {
-                document.getElementById("confirmResetModal").style.display = "flex";
-                return;
-            }
             doResetGame();
-        }
-
-        function confirmReset() {
-            closeConfirmModal();
-            doResetGame();
-        }
-
-        function closeConfirmModal(e) {
-            if (e && e.target !== document.getElementById("confirmResetModal")) return;
-            document.getElementById("confirmResetModal").style.display = "none";
         }
 
         function doResetGame() {
@@ -2603,9 +2583,14 @@
         function saveAppState() {
             const activeScreen = document.querySelector('.screen.active');
             if (!activeScreen) return;
-            const screenId = activeScreen.id;
+            let screenId = activeScreen.id;
             // No persistir pantallas intermedias del temporizador (no restaurables fácilmente)
             if (screenId === 'timerScreen') return;
+            // Si hay partida en curso y el usuario está en la biblioteca,
+            // guardar la pantalla real de juego para que restoreAppState() la recupere
+            if (_gameInProgress && screenId === 'setupScreen' && _activeGameScreenId) {
+                screenId = _activeGameScreenId;
+            }
             try {
                 localStorage.setItem('bgtime_state', JSON.stringify({
                     screenId,
@@ -2744,9 +2729,12 @@
             const installBtn = document.getElementById('installCardBtn');
             if (installBtn) installBtn.addEventListener('click', triggerPwaInstall);
 
+            // Migrar datos de favoritos al nuevo sistema de estanterías
+            migrateShelvesData();
+
             // Poblar la Biblioteca con las plantillas de games.js + plantillas propias
             rebuildLibrary();
-            renderFavoritePills();
+            renderLibraryShelves();
 
             // Inicializar píldoras de jugadores (mostrará el botón +Añadir desde el inicio)
             updatePlayerPills();
@@ -2757,7 +2745,6 @@
         // ── AUTOCOMPLETE BIBLIOTECA ────────────────────────────────
         // Índice ordenado: [{index, name, emoji, label}]
         let _libraryIndex = [];
-        let _libraryCloseTimer = null;
 
         function formatRelativeDate(dateStr) {
             if (!dateStr) return dateStr;
@@ -2824,191 +2811,296 @@
                 .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
         }
 
-        function positionLibraryDropdown() {
-            const input = document.getElementById('librarySearch');
-            const dropdown = document.getElementById('libraryDropdown');
-            if (!input || !dropdown) return;
-            const rect = input.getBoundingClientRect();
-            dropdown.style.top = (rect.bottom + 6) + 'px';
-            dropdown.style.left = rect.left + 'px';
-            dropdown.style.width = rect.width + 'px';
-        }
+        // ── Biblioteca de juegos: estanterías ────────────────────────
+        let _glModalSelectedIndex = null;
+        let _glModalHistGameName = null, _glModalHistGameEmoji = null;
 
-        function filterLibraryAndSync() {
-            // Clear template selection when user types freely
-            if (document.getElementById('templateSelect').value !== '') {
-                document.getElementById('templateSelect').value = '';
-                document.getElementById('libraryClearBtn').style.display = 'none';
-            }
-            filterLibrary();
-        }
-
-        function filterLibrary() {
-            const q = normStr(document.getElementById('librarySearch').value.trim());
-            const dropdown = document.getElementById('libraryDropdown');
-
-            const matches = q === ''
-                ? _libraryIndex
-                : _libraryIndex.filter(t => t.norm.includes(q));
-
-            renderDropdown(matches, q);
-            positionLibraryDropdown();
-            dropdown.style.display = 'block';
-        }
-
-        function renderDropdown(items, q) {
-            const dropdown = document.getElementById('libraryDropdown');
-            dropdown.innerHTML = '';
-
-            if (items.length === 0) {
-                dropdown.innerHTML = `<li class="library-dropdown-empty">Sin resultados para "${q}"</li>`;
-                return;
-            }
-
-            items.forEach(t => {
-                const li = document.createElement('li');
-                // Resaltar la parte que coincide con la búsqueda
-                let nameHtml = escapeHtml(t.name);
-                if (q) {
-                    const idx = t.norm.indexOf(q);
-                    if (idx !== -1) {
-                        nameHtml =
-                            escapeHtml(t.name.slice(0, idx)) +
-                            `<span class="lib-match">${escapeHtml(t.name.slice(idx, idx + q.length))}</span>` +
-                            escapeHtml(t.name.slice(idx + q.length));
-                    }
-                }
-                li.innerHTML = `<span>${t.emoji}</span><span>${nameHtml}</span>`;
-                li.addEventListener('mousedown', (e) => e.preventDefault()); // evita blur antes de click
-                li.addEventListener('click', () => selectLibraryItem(t));
-                dropdown.appendChild(li);
-            });
-        }
-
-        function escapeHtml(str) {
-            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        }
-
-        function selectLibraryItem(t) {
-            document.getElementById('templateSelect').value = t.index;
-            document.getElementById('librarySearch').value = t.label;
-            document.getElementById('libraryClearBtn').style.display = 'flex';
-            document.getElementById('libraryDropdown').style.display = 'none';
-            document.getElementById('gameNameError').textContent = '';
-            updateRemoveButtons();
-        }
-
-        // ── Píldoras de plantillas favoritas + recientes ─────────────
-        function renderFavoritePills() {
-            const container = document.getElementById('favoritePillsContainer');
-            if (!container) return;
-
-            const templates  = getCustomTemplates ? getCustomTemplates() : [];
-            const favs       = templates.filter(t => t.favorite);
-            const favNorms   = new Set(favs.map(t => normStr(t.name)));
-
-            // SVGs
-            const starSvg  = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
-            const clockSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 14.5 14.5"/></svg>`;
-
-            // Favoritas
-            const favPills = favs.map(tpl => {
-                const origIndex = templates.indexOf(tpl);
-                return `<button class="fav-pill" onclick="selectFavoriteTemplate(${origIndex})" title="Cargar plantilla: ${tpl.name}">${starSvg} ${tpl.emoji || '🎲'} ${tpl.name}</button>`;
-            }).join('');
-
-            // Recientes: últimas 2 del historial cuyo nombre no coincida con una favorita
-            // y que existan en _libraryIndex (es decir, tienen plantilla)
-            let recentPills = '';
-            try {
-                const history = getHistory();
-                const seen    = new Set();
-                const recents = [];
-                for (const entry of history) {
-                    if (!entry.gameName) continue;
-                    const n = normStr(entry.gameName);
-                    if (seen.has(n)) continue;
-                    seen.add(n);
-                    if (favNorms.has(n)) continue; // ya aparece como favorita
-                    // Solo si tiene plantilla en la biblioteca
-                    const libEntry = _libraryIndex.find(t => t.norm === n);
-                    if (!libEntry) continue;
-                    recents.push({ name: entry.gameName, emoji: entry.emoji || libEntry.emoji || '🎲', libEntry });
-                    if (recents.length === 2) break;
-                }
-                recentPills = recents.map(r =>
-                    `<button class="recent-pill" onclick="selectRecentTemplate('${r.name.replace(/'/g, "\\'")}', ${r.libEntry.index})" title="Cargar plantilla: ${r.name}">${clockSvg} ${r.emoji} ${r.name}</button>`
-                ).join('');
-            } catch(e) {}
-
-            if (!favPills && !recentPills) {
-                container.innerHTML = '';
-                return;
-            }
-            container.innerHTML = `<div class="fav-pills-row">${favPills}${recentPills}</div>`;
-        }
-
-        function selectRecentTemplate(gameName, libIndex) {
-            // Igual que selectLibraryItem pero llamando después a goToPlayersScreen
-            const libEntry = _libraryIndex.find(t => t.index === libIndex);
-            if (!libEntry) return;
-            document.getElementById('templateSelect').value = libEntry.index;
-            document.getElementById('librarySearch').value  = libEntry.label;
-            document.getElementById('libraryClearBtn').style.display = 'flex';
-            document.getElementById('libraryDropdown').style.display = 'none';
-            document.getElementById('gameNameError').textContent = '';
-            goToPlayersScreen();
-        }
-
-        function selectFavoriteTemplate(index) {
+        function renderLibraryShelves() {
+            const dynContainer = document.getElementById('libraryDynamicShelves');
+            if (!dynContainer) return;
+            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
             const templates = getCustomTemplates ? getCustomTemplates() : [];
-            const tpl = templates[index];
-            if (!tpl) return;
+            dynContainer.innerHTML = shelves.map(shelf => {
+                const cards = templates
+                    .filter(tpl => tpl.shelfId === shelf.id)
+                    .map(tpl => {
+                        const libEntry = _libraryIndex.find(t => t.norm === normStr(tpl.name));
+                        if (!libEntry) return '';
+                        return `<button class="game-card" onclick="openGameLibraryModal(${libEntry.index})">
+                            <span class="game-card-emoji">${tpl.emoji || '🎲'}</span>
+                            <span class="game-card-name">${tpl.name}</span>
+                        </button>`;
+                    }).join('');
+                if (!cards) return '';
+                return `<div class="library-shelf">
+                    <div class="shelf-label">${shelf.name}</div>
+                    <div class="shelf-scroll">${cards}</div>
+                </div>`;
+            }).join('');
+            renderShelfHistorial();
+        }
 
-            // Buscar en _libraryIndex (igual que selectLibraryItem) para obtener el índice global correcto
-            const normName = normStr(tpl.name);
-            const libEntry = _libraryIndex.find(t => t.norm === normName);
-            if (!libEntry) return; // no debería pasar, la plantilla está en la biblioteca
+        function renderShelfHistorial() {
+            const container = document.getElementById('shelfHistorialCards');
+            if (!container) return;
+            const history = getHistory();
+            const templates = getCustomTemplates ? getCustomTemplates() : [];
+            // Juegos que ya están asignados a alguna estantería
+            const shelfedNames = new Set(
+                templates.filter(t => t.shelfId).map(t => normStr(t.name))
+            );
+            const seen = new Set();
+            const games = [];
+            for (const entry of history) {
+                if (!entry.gameName) continue;
+                const key = normStr(entry.gameName);
+                if (seen.has(key)) continue;
+                if (shelfedNames.has(key)) continue;
+                seen.add(key);
+                const libEntry = _libraryIndex.find(t => t.norm === key);
+                games.push({
+                    name: entry.gameName,
+                    emoji: entry.emoji || (libEntry ? libEntry.emoji : '🎲'),
+                    libIndex: libEntry ? libEntry.index : null
+                });
+            }
+            if (games.length === 0) {
+                container.innerHTML = `<div class="game-card game-card-empty">
+                    <span class="game-card-emoji">🎲</span>
+                    <span class="game-card-name">Juega tu primera partida</span>
+                </div>`;
+                return;
+            }
+            container.innerHTML = games.map(g => g.libIndex !== null
+                ? `<button class="game-card" onclick="openGameLibraryModal(${g.libIndex})">
+                       <span class="game-card-emoji">${g.emoji}</span>
+                       <span class="game-card-name">${g.name}</span>
+                   </button>`
+                : `<button class="game-card" onclick="openHistorialGameModal('${g.name.replace(/'/g, "\\'")}', '${(g.emoji || '🎲').replace(/'/g, "\\'")}')">
+                       <span class="game-card-emoji">${g.emoji}</span>
+                       <span class="game-card-name">${g.name}</span>
+                   </button>`
+            ).join('');
+        }
 
-            // Rellenar el campo y el selector oculto exactamente igual que selectLibraryItem
-            document.getElementById('templateSelect').value = libEntry.index;
-            document.getElementById('librarySearch').value = libEntry.label;
-            document.getElementById('libraryClearBtn').style.display = 'flex';
-            document.getElementById('libraryDropdown').style.display = 'none';
+        function openGameLibraryModal(libIndex) {
+            const entry = _libraryIndex.find(t => t.index === libIndex);
+            if (!entry) return;
+            _glModalSelectedIndex = libIndex;
+            document.getElementById('glModalEmoji').textContent = entry.emoji || '🎲';
+            document.getElementById('glModalTitle').textContent = entry.name;
+            // Mostrar "Editar" para plantillas propias y para juegos del historial
+            const inHistory = getHistory().some(e => normStr(e.gameName) === entry.norm);
+            document.getElementById('glModalEditBtn').style.display = (entry._custom || inHistory) ? '' : 'none';
+            document.getElementById('gameLibraryModal').style.display = 'flex';
+        }
+
+        // Abre el modal para un juego del historial que no tiene entrada en _libraryIndex
+        function openHistorialGameModal(name, emoji) {
+            _glModalSelectedIndex = -1; // sentinel: juego sin template
+            _glModalHistGameName = name;
+            _glModalHistGameEmoji = emoji || '🎲';
+            document.getElementById('glModalEmoji').textContent = emoji || '🎲';
+            document.getElementById('glModalTitle').textContent = name;
+            document.getElementById('glModalEditBtn').style.display = '';
+            document.getElementById('gameLibraryModal').style.display = 'flex';
+        }
+
+        function closeGameLibraryModal(e) {
+            if (e && e.target !== document.getElementById('gameLibraryModal')) return;
+            document.getElementById('gameLibraryModal').style.display = 'none';
+            _glModalSelectedIndex = null;
+            _glModalHistGameName = null;
+            _glModalHistGameEmoji = null;
+        }
+
+        function glModalPlay() {
+            if (_glModalSelectedIndex === null) return;
+            if (_glModalSelectedIndex === -1) {
+                // Juego sin template
+                closeGameLibraryModal();
+                startNoTemplateGame(_glModalHistGameName, _glModalHistGameEmoji);
+                return;
+            }
+            const entry = _libraryIndex.find(t => t.index === _glModalSelectedIndex);
+            if (!entry) return;
+            document.getElementById('templateSelect').value = entry.index;
+            document.getElementById('gameName').value = entry.name;
             document.getElementById('gameNameError').textContent = '';
-
-            // Pasar a la pantalla de jugadores usando el mismo flujo que el botón de flecha
+            closeGameLibraryModal();
             goToPlayersScreen();
+        }
+
+        function glModalEdit() {
+            if (_glModalSelectedIndex === null) return;
+            if (_glModalSelectedIndex === -1) {
+                // Juego del historial sin template: crear plantilla pre-rellena
+                const name = _glModalHistGameName;
+                closeGameLibraryModal();
+                createTemplateFromHistory(name);
+                return;
+            }
+            const entry = _libraryIndex.find(t => t.index === _glModalSelectedIndex);
+            if (!entry) return;
+            const templates = getCustomTemplates ? getCustomTemplates() : [];
+            const customIdx = templates.findIndex(t => normStr(t.name) === entry.norm);
+            closeGameLibraryModal();
+            if (customIdx !== -1) {
+                editCustomTemplate(customIdx);
+            } else {
+                // Juego del historial con libEntry (GAME_TEMPLATE): crear plantilla propia
+                createTemplateFromHistory(entry.name);
+            }
+        }
+
+        function startNoTemplateGame(name, emoji) {
+            document.getElementById('templateSelect').value = '';
+            document.getElementById('gameName').value = name;
+            goToPlayersScreen();
+        }
+
+        function openAddGameSheet() {
+            document.getElementById('addGameEmoji').value = '';
+            document.getElementById('addGameName').value = '';
+            document.getElementById('addGameError').style.display = 'none';
+            document.getElementById('addGameSheet').style.display = 'flex';
+            setTimeout(() => document.getElementById('addGameName').focus(), 100);
+        }
+
+        function closeAddGameSheet(e) {
+            if (e && e.target !== document.getElementById('addGameSheet')) return;
+            document.getElementById('addGameSheet').style.display = 'none';
+        }
+
+        function submitAddGame() {
+            const name = document.getElementById('addGameName').value.trim();
+            const emoji = document.getElementById('addGameEmoji').value.trim() || '🎲';
+            if (!name) {
+                const err = document.getElementById('addGameError');
+                err.textContent = 'Escribe el nombre del juego';
+                err.style.display = '';
+                return;
+            }
+            const libEntry = _libraryIndex.find(t => t.norm === normStr(name));
+            closeAddGameSheet();
+            if (libEntry) {
+                openGameLibraryModal(libEntry.index);
+            } else {
+                document.getElementById('templateSelect').value = '';
+                document.getElementById('gameName').value = name;
+                window._pendingNewGameEmoji = emoji;
+                goToPlayersScreen();
+            }
         }
         // ─────────────────────────────────────────────────────────────
 
-        function openLibraryDropdown() {
-            cancelCloseLibrary();
-            const q = normStr(document.getElementById('librarySearch').value.trim());
-            const matches = q === ''
-                ? _libraryIndex
-                : _libraryIndex.filter(t => t.norm.includes(q));
-            renderDropdown(matches, q);
-            positionLibraryDropdown();
-            document.getElementById('libraryDropdown').style.display = 'block';
-        }
-
-        function scheduleCloseLibrary() {
-            _libraryCloseTimer = setTimeout(() => {
-                document.getElementById('libraryDropdown').style.display = 'none';
-            }, 150);
-        }
-
-        function cancelCloseLibrary() {
-            if (_libraryCloseTimer) clearTimeout(_libraryCloseTimer);
-        }
-
         function clearLibrarySelection() {
             document.getElementById('templateSelect').value = '';
-            document.getElementById('librarySearch').value = '';
             document.getElementById('gameName').value = '';
-            document.getElementById('libraryClearBtn').style.display = 'none';
-            document.getElementById('libraryDropdown').style.display = 'none';
+        }
+
+        // ── Gestor de estanterías ────────────────────────────────────
+        function openShelvesManager() {
+            renderShelvesManager();
+            document.getElementById('shelvesManagerSheet').style.display = 'flex';
+        }
+
+        function closeShelvesManager(e) {
+            if (e && e.target !== document.getElementById('shelvesManagerSheet')) return;
+            document.getElementById('shelvesManagerSheet').style.display = 'none';
+        }
+
+        function renderShelvesManager() {
+            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
+            const container = document.getElementById('shelvesList');
+            if (!container) return;
+            const svgUp = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`;
+            const svgDown = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+            const svgDel = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+            if (shelves.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-secondary);font-size:14px;text-align:center;padding:12px 0;">No tienes estanterías. Crea una.</p>';
+                return;
+            }
+            container.innerHTML = shelves.map((shelf, idx) => `
+                <div class="shelf-manager-row">
+                    <span class="shelf-manager-name" onclick="renameShelf('${shelf.id}')">${shelf.name}</span>
+                    <div class="shelf-manager-actions">
+                        <button class="custom-tpl-btn" onclick="moveShelfUp('${shelf.id}')" ${idx === 0 ? 'disabled' : ''}>${svgUp}</button>
+                        <button class="custom-tpl-btn" onclick="moveShelfDown('${shelf.id}')" ${idx === shelves.length - 1 ? 'disabled' : ''}>${svgDown}</button>
+                        <button class="custom-tpl-btn" onclick="deleteShelf('${shelf.id}')" style="color:#e74c3c;">${svgDel}</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function addShelf() {
+            const name = prompt('Nombre de la nueva estantería:');
+            if (!name || !name.trim()) return;
+            const shelves = getShelves();
+            const newShelf = {
+                id: 'shelf_' + Date.now(),
+                name: name.trim(),
+                order: shelves.length
+            };
+            shelves.push(newShelf);
+            saveShelves(shelves);
+            renderShelvesManager();
+            renderLibraryShelves();
+        }
+
+        function deleteShelf(shelfId) {
+            const shelves = getShelves();
+            const shelf = shelves.find(s => s.id === shelfId);
+            if (!shelf) return;
+            if (!confirm(`¿Eliminar la estantería "${shelf.name}"? Los juegos quedarán en "En el historial".`)) return;
+            const updated = shelves.filter(s => s.id !== shelfId);
+            // Renumber order
+            updated.forEach((s, i) => s.order = i);
+            saveShelves(updated);
+            // Unassign templates from this shelf
+            const templates = getCustomTemplates();
+            let changed = false;
+            templates.forEach(tpl => {
+                if (tpl.shelfId === shelfId) {
+                    tpl.shelfId = null;
+                    changed = true;
+                }
+            });
+            if (changed) saveCustomTemplates(templates);
+            renderShelvesManager();
+            renderLibraryShelves();
+        }
+
+        function renameShelf(shelfId) {
+            const shelves = getShelves();
+            const shelf = shelves.find(s => s.id === shelfId);
+            if (!shelf) return;
+            const newName = prompt('Nuevo nombre:', shelf.name);
+            if (!newName || !newName.trim()) return;
+            shelf.name = newName.trim();
+            saveShelves(shelves);
+            renderShelvesManager();
+            renderLibraryShelves();
+        }
+
+        function moveShelfUp(shelfId) {
+            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
+            const idx = shelves.findIndex(s => s.id === shelfId);
+            if (idx <= 0) return;
+            [shelves[idx - 1].order, shelves[idx].order] = [shelves[idx].order, shelves[idx - 1].order];
+            saveShelves(shelves);
+            renderShelvesManager();
+            renderLibraryShelves();
+        }
+
+        function moveShelfDown(shelfId) {
+            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
+            const idx = shelves.findIndex(s => s.id === shelfId);
+            if (idx === -1 || idx >= shelves.length - 1) return;
+            [shelves[idx].order, shelves[idx + 1].order] = [shelves[idx + 1].order, shelves[idx].order];
+            saveShelves(shelves);
+            renderShelvesManager();
+            renderLibraryShelves();
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -3046,6 +3138,30 @@
             else { localStorage.setItem('bgtime_custom_templates', JSON.stringify(list)); }
             rebuildLibrary();
             if (window._fbSaveSettings) window._fbSaveSettings();
+        }
+
+        // ── Estanterías ─────────────────────────────────────────────────
+        function getShelves() {
+            try {
+                const stored = localStorage.getItem('bgtime_shelves');
+                if (stored) return JSON.parse(stored);
+            } catch(e) {}
+            return [{ id: 'shelf_favoritos', name: 'Favoritos', order: 0 }];
+        }
+        function saveShelves(arr) {
+            try { localStorage.setItem('bgtime_shelves', JSON.stringify(arr)); } catch(e) {}
+        }
+        // Migra templates con favorite:true al nuevo sistema de shelfId
+        function migrateShelvesData() {
+            const list = getCustomTemplates();
+            let changed = false;
+            list.forEach(tpl => {
+                if (tpl.favorite && !tpl.shelfId) {
+                    tpl.shelfId = 'shelf_favoritos';
+                    changed = true;
+                }
+            });
+            if (changed) saveCustomTemplates(list);
         }
 
         // Mezcla GAME_TEMPLATES con las plantillas personalizadas y reconstruye el índice
@@ -3460,6 +3576,7 @@
             document.getElementById('tplMaxPlayers').value = '';
             document.getElementById('tplFormError').textContent = '';
             document.getElementById('tplItemsList').innerHTML = '';
+            populateTplShelfSelect('');
             const items = entry.items || entry.roundItems || [];
             items.forEach(it => addTplItem(it.name || it, it.negative || false));
             onTplScoringChange();
@@ -3482,7 +3599,7 @@
             tpl.favorite = !tpl.favorite;
             saveCustomTemplates(list);
             renderCustomTemplatesList();
-            renderFavoritePills();
+            renderLibraryShelves();
         }
 
         function scoringTypeLabel(type) {
@@ -3516,10 +3633,18 @@
             if (window._fbDeleteTemplate) window._fbDeleteTemplate(tpl.id);
             closeDeleteTemplateModal();
             renderCustomTemplatesList();
-            renderFavoritePills();
+            renderLibraryShelves();
         }
         // ── Formulario de plantilla ───────────────────────────────────
         let _editingTemplateIndex = null;
+
+        function populateTplShelfSelect(selectedId) {
+            const sel = document.getElementById('tplShelf');
+            if (!sel) return;
+            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
+            sel.innerHTML = '<option value="">— Sin estantería —</option>' +
+                shelves.map(s => `<option value="${s.id}"${s.id === selectedId ? ' selected' : ''}>${s.name}</option>`).join('');
+        }
 
         function openNewTemplateForm() {
             _editingTemplateIndex = null;
@@ -3533,6 +3658,7 @@
             document.getElementById('tplMaxPlayers').value = '';
             document.getElementById('tplItemsList').innerHTML = '';
             document.getElementById('tplFormError').textContent = '';
+            populateTplShelfSelect('');
             onTplScoringChange();
             document.getElementById('templateFormModal').style.display = 'flex';
         }
@@ -3549,6 +3675,7 @@
             document.getElementById('tplTargetScore').value = tpl.targetScore || 40;
             document.getElementById('tplMaxPlayers').value = tpl.maxPlayers || '';
             document.getElementById('tplFormError').textContent = '';
+            populateTplShelfSelect(tpl.shelfId || '');
             // Render items
             document.getElementById('tplItemsList').innerHTML = '';
             const items = tpl.items || tpl.roundItems || [];
@@ -3599,6 +3726,7 @@
                 negative: document.querySelectorAll('.tpl-item-negative')[i].checked
             })).filter(it => it.name);
 
+            const shelfId = document.getElementById('tplShelf')?.value || null;
             const tpl = {
                 id: _editingTemplateIndex !== null ? getCustomTemplates()[_editingTemplateIndex].id : Date.now(),
                 name,
@@ -3609,7 +3737,7 @@
                 roundScoringMode: 'all_at_end',
                 items: scoringType === 'items' ? items : [],
                 roundItems: scoringType === 'rounds_with_items' ? items : [],
-                favorite: _editingTemplateIndex !== null ? (getCustomTemplates()[_editingTemplateIndex].favorite || false) : false,
+                shelfId: shelfId || null,
             };
             const maxP = parseInt(document.getElementById('tplMaxPlayers').value);
             if (maxP >= 2) tpl.maxPlayers = maxP;
@@ -3645,7 +3773,7 @@
 
             document.getElementById('templateFormModal').style.display = 'none';
             renderCustomTemplatesList();
-            renderFavoritePills();
+            renderLibraryShelves();
         }
 
         // ── Perfil de jugador (UI) ────────────────────────────────────

@@ -26,7 +26,7 @@
 </head>
 <body>
     <div class="top-bar">
-        <button class="top-bar-btn" onclick="resetGame()" aria-label="Inicio">
+        <button class="top-bar-btn" onclick="goToLibrary()" aria-label="Inicio">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                 <polyline points="9 22 9 12 15 12 15 22"/>
@@ -58,36 +58,45 @@
     </div>
 
     <div class="container">
-        <!-- Pantalla 1: Configuración inicial -->
+        <!-- Pantalla 1: Biblioteca de juegos -->
         <div id="setupScreen" class="screen active">
-            <div class="welcome-screen">
-                <div class="logo-container">
-                    <img src="iconoprincipal.png" class="app-logo" alt="BGTime logo">
-                </div>
-                
-                <h1 class="welcome-title">¿A qué jugamos hoy?</h1>
+            <!-- Campos ocultos: compatibilidad con goToPlayersScreen() y demás JS -->
+            <input type="hidden" id="templateSelect" value="">
+            <input type="hidden" id="gameName" value="">
+            <div id="gameNameError" class="error" style="display:none;"></div>
 
-                <div id="favoritePillsContainer"></div>
-                
-                <div id="templateSection" style="width: 100%; max-width: 500px; position: relative; animation: titleEntrance 0.6s cubic-bezier(0.34, 1.2, 0.64, 1) 0.3s both;">
-                    <!-- Hidden field keeps the numeric index used by the rest of the JS -->
-                    <input type="hidden" id="templateSelect" value="">
-                    <!-- Hidden gameName field for backward compatibility -->
-                    <input type="hidden" id="gameName" value="">
-                    <div class="game-input-container" style="position:relative;">
-                        <div class="library-input-wrap" style="flex:1; max-width: 400px;">
-                            <input type="text" id="librarySearch" class="game-input-large library-search-input"
-                                   placeholder="Nombre del juego"
-                                   autocomplete="off" autocorrect="off" spellcheck="false"
-                                   oninput="filterLibraryAndSync()" onfocus="openLibraryDropdown()" onblur="scheduleCloseLibrary()">
-                            <button class="library-clear-btn" id="libraryClearBtn" onclick="clearLibrarySelection()" style="display:none;" tabindex="-1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-                        </div>
-                        <button class="game-next-btn" onclick="goToPlayersScreen()" aria-label="Siguiente">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                        </button>
-                    </div>
-                    <div id="gameNameError" class="error"></div>
+            <!-- Cabecera -->
+            <div class="library-header">
+                <img src="iconoprincipal.png" class="app-logo-small" alt="BGTime logo">
+                <h1 class="library-title">Biblioteca de juegos</h1>
+            </div>
+
+            <!-- Estanterías dinámicas (gestionadas por el usuario) -->
+            <div id="libraryDynamicShelves"></div>
+
+            <!-- Estantería fija: En el historial -->
+            <div class="library-shelf" id="shelfHistorial">
+                <div class="shelf-label">En el historial</div>
+                <div class="shelf-scroll" id="shelfHistorialCards"></div>
+            </div>
+
+            <!-- Estantería fija: Añadir nuevo juego -->
+            <div class="library-shelf">
+                <div class="shelf-label">Nuevo juego</div>
+                <div class="shelf-scroll">
+                    <button class="game-card game-card-add" onclick="openAddGameSheet()">
+                        <span class="game-card-emoji">＋</span>
+                        <span class="game-card-name">Añadir juego</span>
+                    </button>
                 </div>
+            </div>
+
+            <!-- Botón discreto: gestionar estanterías -->
+            <div class="shelf-manage-row">
+                <button class="shelf-manage-btn" onclick="openShelvesManager()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    Estanterías
+                </button>
             </div>
         </div>
 
@@ -615,27 +624,6 @@
                 </div>
             </div>
 
-            <!-- Mis plantillas -->
-            <div class="settings-section">
-                <h2 style="display:flex;align-items:center;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:8px;flex-shrink:0;"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17.5 14v6M14.5 17h6"/></svg>
-                    Mis plantillas
-                </h2>
-                <p class="settings-desc">Tus plantillas personalizadas. Aparecerán en la biblioteca junto a las predefinidas. Puedes guardar hasta 3 plantillas como favoritas, para tener un acceso rápido en la pantalla principal.</p>
-                <div id="customTemplatesList" class="frecuent-list"></div>
-                <button onclick="openNewTemplateForm()" class="add-player-btn" style="margin-top:10px;">+ Nueva plantilla</button>
-            </div>
-
-            <!-- Juegos del historial -->
-            <div class="settings-section">
-                <h2 style="display:flex;align-items:center;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:8px;flex-shrink:0;"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15.5" cy="11" r=".5" fill="currentColor"/><circle cx="17.5" cy="13" r=".5" fill="currentColor"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.544-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/></svg>
-                    Juegos del historial
-                </h2>
-                <p class="settings-desc">Juegos en los que has participado. Pulsa + para editarlos y añadirlos a tus plantillas.</p>
-                <div id="historyGamesList" class="frecuent-list"></div>
-            </div>
-
         </div>
 
         <!-- Modal: Nueva/editar plantilla -->
@@ -650,6 +638,12 @@
                 <div class="tpl-form-group">
                     <label>Nombre del juego</label>
                     <input type="text" id="tplName" placeholder="Ej: Catan" class="tpl-input">
+                </div>
+                <div class="tpl-form-group">
+                    <label>Estantería</label>
+                    <select id="tplShelf" class="tpl-input">
+                        <option value="">— Sin estantería —</option>
+                    </select>
                 </div>
                 <div class="tpl-form-group">
                     <label>Tipo de puntuación</label>
@@ -690,19 +684,6 @@
     
     <div class="footer-credit footer-outside">
         <strong>BGTime </strong> &nbsp;&nbsp;&nbsp;-&nbsp;&nbsp;&nbsp;&nbsp;Un proyecto de <strong>Álvaro Iregui</strong>
-    </div>
-
-    <!-- Modal de confirmación para volver al inicio -->
-    <div id="confirmResetModal" class="confirm-modal-overlay" style="display:none;" onclick="closeConfirmModal(event)">
-        <div class="confirm-modal-box">
-            <div class="confirm-modal-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
-            <p class="confirm-modal-title">¿Volver al inicio?</p>
-            <p class="confirm-modal-desc">Se perderán los datos de la partida en curso.</p>
-            <div class="confirm-modal-actions">
-                <button class="confirm-modal-cancel" onclick="closeConfirmModal()">Cancelar</button>
-                <button class="confirm-modal-ok" onclick="confirmReset()">Sí, salir</button>
-            </div>
-        </div>
     </div>
 
     <div id="confirmClearHistoryModal" class="confirm-modal-overlay" style="display:none;" onclick="closeClearHistoryModal(event)">
@@ -795,7 +776,54 @@
 
 
     <script src="js/app.js"></script>
-    <ul id="libraryDropdown" class="library-dropdown" style="display:none;"></ul>
+
+    <!-- Modal: Detalle de juego (biblioteca) -->
+    <div id="gameLibraryModal" style="display:none;" onclick="closeGameLibraryModal(event)">
+        <div class="game-library-sheet">
+            <button class="game-library-sheet-close" onclick="closeGameLibraryModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="game-library-sheet-emoji" id="glModalEmoji">🎲</div>
+            <div class="game-library-sheet-title" id="glModalTitle">Juego</div>
+            <div class="game-library-sheet-actions">
+                <button id="glModalEditBtn" class="secondary" onclick="glModalEdit()" style="display:none;">Editar</button>
+                <button onclick="glModalPlay()">¡A jugar!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Añadir nuevo juego -->
+    <div id="addGameSheet" style="display:none;" onclick="closeAddGameSheet(event)">
+        <div class="game-library-sheet">
+            <button class="game-library-sheet-close" onclick="closeAddGameSheet()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="game-library-sheet-title">Nuevo juego</div>
+            <div class="add-game-form">
+                <input type="text" id="addGameEmoji" class="add-game-emoji-input" placeholder="🎲" maxlength="4" autocomplete="off">
+                <input type="text" id="addGameName" class="add-game-name-input" placeholder="Nombre del juego" autocomplete="off" autocorrect="off">
+            </div>
+            <div id="addGameError" class="error" style="display:none;"></div>
+            <div class="game-library-sheet-actions" style="margin-top:8px;">
+                <button onclick="submitAddGame()">Continuar</button>
+            </div>
+            <button onclick="closeAddGameSheet(); openNewTemplateForm();" style="background:none;border:none;color:var(--text-secondary);font-size:13px;padding:8px 0 0 0;min-height:unset;text-decoration:underline;cursor:pointer;">Configurar puntuación personalizada</button>
+        </div>
+    </div>
+
+    <!-- Modal: Gestionar estanterías -->
+    <div id="shelvesManagerSheet" style="display:none;" onclick="closeShelvesManager(event)">
+        <div class="game-library-sheet shelves-manager-sheet">
+            <button class="game-library-sheet-close" onclick="closeShelvesManager()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="game-library-sheet-title" style="margin-bottom:16px;">Estanterías</div>
+            <div id="shelvesList" style="width:100%;"></div>
+            <button onclick="addShelf()" style="margin-top:12px;width:100%;padding:12px 0;font-size:14px;">
+                + Nueva estantería
+            </button>
+        </div>
+    </div>
 
     <!-- Modal: partidas de un juego -->
     <div id="gameDetailModal" onclick="closeGameDetailModal(event)">
