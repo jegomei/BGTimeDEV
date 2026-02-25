@@ -32,6 +32,16 @@
                 <polyline points="9 22 9 12 15 12 15 22"/>
             </svg>
         </button>
+        <button id="activeGameBtn" class="top-bar-btn" onclick="goToActiveGame()" aria-label="Partida en curso" style="display:none">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="3"/>
+                <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/>
+                <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/>
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+                <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" stroke="none"/>
+                <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" stroke="none"/>
+            </svg>
+        </button>
         <button id="statsBtn" class="top-bar-btn" onclick="showStats()" aria-label="Estadísticas">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10"/>
@@ -52,28 +62,7 @@
         <div id="setupScreen" class="screen active">
             <div class="welcome-screen">
                 <div class="logo-container">
-                    <svg id="appLogo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 276 240" class="app-logo" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
-    <defs>
-        <linearGradient id="logoGradient" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#667eea"/>
-            <stop offset="50%" stop-color="#764ba2"/>
-            <stop offset="100%" stop-color="#f093fb"/>
-        </linearGradient>
-    </defs>
-    <!-- Hexágono con degradado -->
-    <g transform="matrix(0.182272,0,0,0.182272,-63.943299,-124.818254)">
-        <g transform="matrix(1.621065,0,0,1.545342,-742.209443,-580.632298)">
-            <path fill="url(#logoGradient)" d="M1154,841C1280.225,891.502 1403.679,960.966 1511.668,1042.25C1529.904,1174.036 1529.904,1312.964 1511.668,1444.75C1403.679,1526.034 1280.225,1595.498 1154,1646C1027.775,1595.498 904.321,1526.034 796.332,1444.75C778.096,1312.964 778.096,1174.036 796.332,1042.25C904.321,960.966 1027.775,891.502 1154,841Z"/>
-        </g>
-        <!-- Detalles interiores: color adapta según tema -->
-        <g transform="matrix(0.999979,-0.006503,0.004362,0.670669,186.814711,-347.160514)">
-            <path fill="var(--logo-cutout)" d="M465.5,2213C498.339,2213 525,2268.787 525,2337.5C525,2406.213 498.339,2462 465.5,2462C432.661,2462 406,2406.213 406,2337.5C406,2268.787 432.661,2213 465.5,2213ZM1317.899,2783.204L1526.23,3013.927C1526.23,3013.927 1410.257,3144.756 1261.386,3265.165C1099.038,3396.475 924.848,3485.403 924.848,3485.403C924.848,3485.403 950.225,3260.581 955.488,2961.314C961.244,2634.128 944.907,2511.414 944.907,2511.414C944.907,2511.414 905.469,2418.617 672.827,2244.616C462.742,2087.485 326.345,2049.57 326.345,2049.57C326.345,2049.57 471.194,1900.955 605.592,1793.135C749.853,1677.403 933.858,1548.324 933.858,1548.324L1015.819,2448.654L1214.945,2669.183C1222.393,2617.518 1245.412,2579.902 1272.457,2580.164C1305.296,2580.482 1331.713,2636.526 1331.413,2705.238C1331.284,2734.8 1326.231,2761.921 1317.899,2783.204ZM646.263,2621.806C679.101,2622.124 705.518,2678.168 705.218,2746.88C704.918,2815.592 678.015,2871.119 645.176,2870.8C612.338,2870.482 585.921,2814.438 586.221,2745.726C586.52,2677.014 613.424,2621.487 646.263,2621.806ZM813.522,3021.537C846.361,3021.856 872.778,3077.9 872.478,3146.612C872.178,3215.324 845.275,3270.85 812.436,3270.532C779.598,3270.214 753.181,3214.17 753.481,3145.458C753.78,3076.746 780.684,3021.219 813.522,3021.537ZM1425.976,2232.747C1458.814,2233.065 1485.231,2289.109 1484.932,2357.821C1484.632,2426.533 1457.728,2482.06 1424.89,2481.742C1392.052,2481.423 1365.634,2425.379 1365.934,2356.667C1366.234,2287.956 1393.138,2232.429 1425.976,2232.747Z"/>
-        </g>
-        <g transform="matrix(-1.062112,0,0,0.942373,2199.378882,-1149.362712)">
-            <path fill="var(--logo-cutout)" stroke="var(--logo-cutout)" stroke-width="19.13px" d="M473,2319C791.695,2511.105 691.523,2445.061 987.07,2625.673"/>
-        </g>
-    </g>
-</svg>
+                    <img src="iconoprincipal.png" class="app-logo" alt="BGTime logo">
                 </div>
                 
                 <h1 class="welcome-title">¿A qué jugamos hoy?</h1>

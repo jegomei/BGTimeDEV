@@ -71,6 +71,15 @@
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
+        function getEntryPlayerTime(entry, playerName) {
+            if (!entry.usedTimer || !entry.playerTotalTimes || !entry.playerTotalTimes.length) return '';
+            const idx = (entry.orderedPlayers || []).indexOf(playerName);
+            if (idx === -1) return '';
+            const secs = entry.playerTotalTimes[idx] || 0;
+            if (secs <= 0) return '';
+            return formatTime(secs);
+        }
+
         function getPlayerTimeSub(playerName) {
             if (!gameData.usedTimer || !gameData.playerTotalTimes || !gameData.orderedPlayers) return '';
             const idx = gameData.orderedPlayers.indexOf(playerName);
@@ -221,6 +230,15 @@
         // settingsScreen and historyScreen are treated as overlays (always slide from right)
 
         let _currentScreenId = 'setupScreen';
+        let _gameInProgress = false;
+        let _activeGameScreenId = null;
+
+        function goToActiveGame() {
+            if (!_activeGameScreenId) return;
+            if (_currentScreenId === _activeGameScreenId) return;
+            const isFromOverlay = _currentScreenId === 'statsScreen' || _currentScreenId === 'settingsScreen';
+            showScreen(_activeGameScreenId, isFromOverlay ? -1 : undefined);
+        }
 
         function setOverlayBtnState(screenId) {
             document.getElementById('settingsBtn').classList.toggle('btn-on', screenId === 'settingsScreen');
@@ -262,6 +280,9 @@
 
             _currentScreenId = screenId;
             setOverlayBtnState(screenId);
+            if (_gameInProgress && screenId !== 'statsScreen' && screenId !== 'settingsScreen') {
+                _activeGameScreenId = screenId;
+            }
 
             const footer = document.querySelector('.footer-credit.footer-outside');
             if (footer) {
@@ -341,6 +362,8 @@
                 // No crear la segunda fila vacía automáticamente
             }
 
+            _gameInProgress = true;
+            document.getElementById('activeGameBtn').style.display = '';
             showScreen('playersScreen');
             updateRemoveButtons(true); // Skip pills update here
             updatePlayerPills(); // Update pills once at the end
@@ -2125,6 +2148,9 @@
         }
 
         function doResetGame() {
+            _gameInProgress = false;
+            _activeGameScreenId = null;
+            document.getElementById('activeGameBtn').style.display = 'none';
             if (timerData.interval) {
                 clearInterval(timerData.interval);
             }
@@ -2437,7 +2463,11 @@
                 if (scores && scores.length && scores[0].length) {
                     const numRounds = scores[0].length;
                     html += '<thead><tr><th></th>';
-                    players.forEach(p => { html += `<th>${p}</th>`; });
+                    players.forEach(p => {
+                        const t = getEntryPlayerTime(entry, p);
+                        const sub = t ? `<span style="display:block;font-size:10px;font-weight:400;opacity:0.7;letter-spacing:0.3px;margin-top:2px;font-family:'DM Mono',monospace;">⏱ ${t}</span>` : '';
+                        html += `<th>${p}${sub}</th>`;
+                    });
                     html += '</tr></thead><tbody>';
                     for (let r = 0; r < numRounds; r++) {
                         html += `<tr><td><strong>R${r+1}</strong></td>`;
@@ -2456,7 +2486,11 @@
                 if (roundItems.length && roundItemScores && roundItemScores.length && roundItemScores[0].length) {
                     const numRounds = roundItemScores[0].length;
                     html += '<thead><tr><th>Ítem</th>';
-                    players.forEach(p => { html += `<th>${p}</th>`; });
+                    players.forEach(p => {
+                        const t = getEntryPlayerTime(entry, p);
+                        const sub = t ? `<span style="display:block;font-size:10px;font-weight:400;opacity:0.7;letter-spacing:0.3px;margin-top:2px;font-family:'DM Mono',monospace;">⏱ ${t}</span>` : '';
+                        html += `<th>${p}${sub}</th>`;
+                    });
                     html += '</tr></thead><tbody>';
                     for (let r = 0; r < numRounds; r++) {
                         roundItems.forEach((item, ii) => {
@@ -2487,7 +2521,11 @@
                 const itemScores = entry.itemScores; // [playerIndex][itemIndex]
                 if (items.length && itemScores && itemScores.length) {
                     html += '<thead><tr><th>Ítem</th>';
-                    players.forEach(p => { html += `<th>${p}</th>`; });
+                    players.forEach(p => {
+                        const t = getEntryPlayerTime(entry, p);
+                        const sub = t ? `<span style="display:block;font-size:10px;font-weight:400;opacity:0.7;letter-spacing:0.3px;margin-top:2px;font-family:'DM Mono',monospace;">⏱ ${t}</span>` : '';
+                        html += `<th>${p}${sub}</th>`;
+                    });
                     html += '</tr></thead><tbody>';
                     items.forEach((item, ii) => {
                         html += `<tr><td><strong>${item.name}${item.negative ? ' (-)' : ''}</strong></td>`;
@@ -2518,7 +2556,9 @@
             let html = '<div class="table-wrapper"><table class="score-table">';
             html += '<thead><tr><th>Jugador</th><th>Puntos</th></tr></thead><tbody>';
             entry.results.forEach((r, i) => {
-                html += `<tr class="${i === 0 ? 'total-row' : ''}"><td><strong>${i === 0 ? '<span style="display:inline-flex;align-items:center;margin-right:3px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>' : ''}${r.player}</strong></td><td><strong>${r.score}</strong></td></tr>`;
+                const t = getEntryPlayerTime(entry, r.player);
+                const timeSub = t ? `<span style="display:block;font-size:10px;font-weight:400;opacity:0.7;letter-spacing:0.3px;margin-top:2px;font-family:'DM Mono',monospace;">⏱ ${t}</span>` : '';
+                html += `<tr class="${i === 0 ? 'total-row' : ''}"><td><strong>${i === 0 ? '<span style="display:inline-flex;align-items:center;margin-right:3px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>' : ''}${r.player}</strong>${timeSub}</td><td><strong>${r.score}</strong></td></tr>`;
             });
             html += '</tbody></table></div>';
             return html;
@@ -2562,6 +2602,9 @@
                 if (!saved) return false;
                 const { screenId, gameData: gd, timerData: td } = JSON.parse(saved);
                 if (!screenId || !gd || screenId === 'setupScreen') return false;
+
+                _gameInProgress = true;
+                document.getElementById('activeGameBtn').style.display = '';
 
                 // Restaurar gameData
                 Object.assign(gameData, gd);
@@ -3001,10 +3044,7 @@
 
         function showSettings() {
             const activeScreen = document.querySelector('.screen.active');
-            if (activeScreen && activeScreen.id === 'settingsScreen') {
-                showScreen(_settingsPreviousScreen, -1);
-                return;
-            }
+            if (activeScreen && activeScreen.id === 'settingsScreen') return;
             if (activeScreen) _settingsPreviousScreen = activeScreen.id;
             renderSettingsScreen();
             showScreen('settingsScreen', 1);
@@ -3802,10 +3842,7 @@
 
         function showStats() {
             const activeScreen = document.querySelector('.screen.active');
-            if (activeScreen && activeScreen.id === 'statsScreen') {
-                showScreen(previousScreenId, -1);
-                return;
-            }
+            if (activeScreen && activeScreen.id === 'statsScreen') return;
             if (activeScreen) previousScreenId = activeScreen.id;
             renderHistoryList();
             if (window._fbSyncHistory) window._fbSyncHistory();
