@@ -2323,46 +2323,44 @@
             const LIMIT = 5;
             const visible = showAll ? history : history.slice(0, LIMIT);
 
-            visible.forEach(entry => {
-                const card = document.createElement('div');
-                card.className = 'history-card';
+            const crownSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+            const chevronRight = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="stats-game-row-arrow"><polyline points="9 18 15 12 9 6"/></svg>';
 
-                // Pills de jugadores
-                const pillsHtml = entry.results.map((r, i) => {
-                    const crownSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="flex-shrink:0;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
-                    const scoreStr = typeof r.score === 'number' ? ` · ${r.score} pts` : '';
-                    return `<span class="history-card-player-pill${i === 0 ? ' winner' : ''}">${i === 0 ? crownSvg : ''}${r.player}${scoreStr}</span>`;
-                }).join('');
+            const list = document.createElement('div');
+            list.className = 'stats-game-list';
+            container.appendChild(list);
+
+            visible.forEach(entry => {
+                const winner = entry.results?.[0]?.player || '';
+                const winnerBadge = winner
+                    ? `<span class="stats-game-winner-badge">${crownSvg}${winner}</span>`
+                    : '';
 
                 const isLoggedIn = window._fbIsLoggedIn && window._fbIsLoggedIn();
                 const synced = window._syncedIds && window._syncedIds.has(entry.id);
                 const syncIcon = (isLoggedIn && !synced)
-                    ? `<span style="display:inline-flex;align-items:center;color:#e74c3c;flex-shrink:0;" title="No sincronizado en la nube">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-                       </span>`
+                    ? `<span style="display:inline-flex;align-items:center;color:#e74c3c;flex-shrink:0;" title="No sincronizado en la nube"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>`
                     : '';
 
-                const sharedByHtml = entry.sharedBy
-                    ? `<div class="shared-by-badge">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                        Añadida por ${entry.sharedBy.nickname || 'un amigo'}
-                       </div>`
+                const sharedBadge = entry.sharedBy
+                    ? `<span class="shared-by-badge" style="margin:0"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>${entry.sharedBy.nickname || 'un amigo'}</span>`
                     : '';
 
-                card.innerHTML = `
-                    <div class="history-card-top">
-                        <div class="history-card-emoji">${entry.emoji || '🎲'}</div>
-                        <div class="history-card-meta">
-                            <div class="history-card-game">${entry.gameName}</div>
-                            <div class="history-card-date">${syncIcon}${formatRelativeDate(entry.date)}</div>
-                        </div>
+                const row = document.createElement('div');
+                row.className = 'stats-game-row';
+                row.innerHTML = `
+                    <span class="stats-game-emoji">${entry.emoji || '🎲'}</span>
+                    <div class="stats-game-info">
+                        <div class="stats-game-name">${entry.gameName}</div>
+                        <div class="stats-game-meta">${winnerBadge}${sharedBadge}</div>
                     </div>
-                    <div class="history-card-divider"></div>
-                    <div class="history-card-players">${pillsHtml}</div>
-                    ${sharedByHtml}
+                    <div class="stats-game-count">
+                        <span class="history-entry-date">${syncIcon}${formatRelativeDate(entry.date)}</span>
+                    </div>
+                    ${chevronRight}
                 `;
-                card.addEventListener('click', () => showHistoryDetail(entry));
-                container.appendChild(card);
+                row.addEventListener('click', () => showHistoryDetail(entry));
+                list.appendChild(row);
             });
 
             if (!showAll && history.length > LIMIT) {
@@ -2428,10 +2426,31 @@
 
         function showHistoryDetail(entry) {
             _currentHistoryEntry = entry;
-            document.getElementById('historyDetailTitle').textContent = `${entry.emoji} ${entry.gameName} · ${formatRelativeDate(entry.date)}`;
+            document.getElementById('historyDetailTitle').textContent = formatRelativeDate(entry.date);
+
+            const resultsList = entry.results.map((r, i) =>
+                `<div class="history-modal-result-row">${i + 1}. ${r.player}: ${r.score} pts${i === 0 ? ' 👑' : ''}</div>`
+            ).join('');
+
             const container = document.getElementById('historyDetailTable');
-            container.innerHTML = buildHistoryDetailTable(entry);
+            container.innerHTML = `
+                <div class="history-modal-game-title">${entry.emoji || '🎲'} ${entry.gameName}</div>
+                <div class="history-modal-results">${resultsList}</div>
+                <button class="secondary history-modal-toggle-btn" onclick="toggleHistoryDetailTable(this)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    Puntuación detallada
+                </button>
+                <div class="history-modal-detail-table" style="display:none">${buildHistoryDetailTable(entry)}</div>
+            `;
+
             document.getElementById('historyDetailModal').style.display = 'flex';
+        }
+
+        function toggleHistoryDetailTable(btn) {
+            const table = btn.nextElementSibling;
+            const isOpen = table.style.display !== 'none';
+            table.style.display = isOpen ? 'none' : 'block';
+            btn.classList.toggle('open', !isOpen);
         }
 
         function shareHistoryEntry() {
