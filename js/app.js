@@ -2732,20 +2732,6 @@
             );
         }
 
-        function updateThemeUI() {
-            const isDark = document.body.classList.contains('dark-theme');
-            const btn = document.getElementById('themeSwitchBtn');
-            const label = document.getElementById('themeLabel');
-            if (btn) btn.classList.toggle('dark', isDark);
-            if (label) label.textContent = isDark ? 'Modo oscuro activo' : 'Modo claro activo';
-        }
-
-        function toggleTheme() {
-            document.body.classList.toggle('dark-theme');
-            const isDark = document.body.classList.contains('dark-theme');
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            updateThemeUI();
-        }
 
         // ── PWA Install ──────────────────────────────────────────────
         let _deferredInstallPrompt = null;
@@ -2818,13 +2804,6 @@
         // ── Fin PWA Install ──────────────────────────────────────────
 
         document.addEventListener('DOMContentLoaded', function() {
-            const savedTheme = localStorage.getItem('theme');
-
-            if (savedTheme === 'dark') {
-                document.body.classList.add('dark-theme');
-            }
-            updateThemeUI();
-
             // Inicializar tarjeta de instalación PWA
             _updateInstallCard();
             const installBtn = document.getElementById('installCardBtn');

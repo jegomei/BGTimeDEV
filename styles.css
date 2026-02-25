@@ -67,39 +67,6 @@
             --logo-cutout: #ffffff;
         }
 
-        body.dark-theme {
-            --bg-gradient-start: #1e3a8a;
-            --bg-gradient-mid: #5b21b6;
-            --bg-gradient-end: #9d174d;
-            --container-bg: #0f1419;
-            --text-primary: #e0e0e0;
-            --text-secondary: #b0b0b0;
-            --primary-color: #7b68ee;
-            --secondary-color: #9370db;
-            --border-color: #2d3748;
-            --input-bg: #1a202c;
-            --input-border: #2d3748;
-            --table-header-bg: #7b68ee;
-            --table-header-text: #ffffff;
-            --table-row-bg: #1a202c;
-            --table-row-alt: #252d3a;
-            --table-total-bg: #2d3748;
-            --button-bg: #7b68ee;
-            --button-hover: #6a5acd;
-            --button-secondary: #4a5568;
-            --button-secondary-hover: #2d3748;
-            --shadow-color: rgba(0, 0, 0, 0.5);
-            --info-box-bg: #1e2936;
-            --info-box-border: #4299e1;
-            /* Gradientes de botones (dark) */
-            --btn-primary-gradient: linear-gradient(135deg, #7b68ee 0%, #9370db 100%);
-            --btn-primary-gradient-hover: linear-gradient(135deg, #6a5acd 0%, #7d5fc4 100%);
-            --btn-green-gradient: linear-gradient(135deg, #2ecc71 0%, #1abc9c 100%);
-            --btn-green-gradient-hover: linear-gradient(135deg, #27ae60 0%, #16a085 100%);
-            --btn-red-gradient: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-            --btn-secondary-gradient: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
-            --logo-cutout: #1e1b4b;
-        }
 
 
         /* =========================================================
@@ -549,9 +516,6 @@
             filter: drop-shadow(0 2px 6px rgba(102,126,234,0.3));
         }
 
-        body.dark-theme .app-logo {
-            filter: drop-shadow(0 2px 8px rgba(167,139,250,0.35));
-        }
 
         .welcome-title {
             font-size: clamp(26px, 7vw, 38px);
@@ -572,12 +536,6 @@
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        body.dark-theme .welcome-title {
-            background: linear-gradient(135deg, #a78bfa 0%, #c084fc 50%, #f472b6 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            filter: drop-shadow(0 2px 10px rgba(167,139,250,0.3));
-        }
 
         .game-input-container {
             display: flex;
@@ -604,16 +562,6 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
 
-        body.dark-theme .game-input-large {
-            background: rgba(30, 30, 50, 0.95);
-            color: #e0e0e0;
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        body.dark-theme .game-input-large:focus {
-            background: rgba(30, 30, 50, 0.95);
-            color: #e0e0e0;
-        }
 
         .game-next-btn {
             width: 60px;
@@ -645,7 +593,7 @@
             transform: scale(0.95);
         }
 
-        body:not(.dark-theme) .game-input-large {
+        .game-input-large {
             background: white;
             border-color: rgba(255, 255, 255, 0.5);
         }
@@ -1064,11 +1012,6 @@
             box-shadow: 0 8px 24px rgba(0,0,0,0.18);
         }
 
-        body.dark-theme .library-dropdown {
-            background: #1a202c;
-            border-color: var(--primary-color);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-        }
         .library-dropdown li {
             padding: 11px 16px;
             font-size: 16px;
@@ -1082,9 +1025,6 @@
             background: transparent;
         }
 
-        body.dark-theme .library-dropdown li {
-            background: transparent;
-        }
         .library-dropdown li:active,
         .library-dropdown li.highlighted {
             background: var(--table-row-alt);
@@ -1138,10 +1078,6 @@
             box-shadow: 0 0 0 3px rgba(102,126,234,0.18);
         }
 
-        body.dark-theme .scoring-type-card.active {
-            background: linear-gradient(135deg, rgba(123,104,238,0.18) 0%, rgba(147,112,219,0.18) 100%);
-            box-shadow: 0 0 0 3px rgba(123,104,238,0.25);
-        }
 
         .stc-icon {
             width: 28px;
@@ -2244,9 +2180,6 @@
             color: var(--text-secondary);
             opacity: 0.45;
         }
-        body.dark-theme .stats-game-row-arrow {
-            opacity: 0.7;
-        }
 
         .stats-game-rank {
             font-size: 13px;
@@ -2299,10 +2232,6 @@
             font-weight: 600;
         }
 
-        body.dark-theme .stats-game-winner-badge {
-            background: linear-gradient(135deg, #f59e0b33, #f59e0b18);
-            color: #fbbf24;
-        }
 
         .stats-game-count {
             display: flex;
@@ -3309,50 +3238,6 @@
         .custom-tpl-btn:active { background: none; transform: none; }
 
 
-        /* -- 10g. Interruptor de tema (claro / oscuro) -- */
-        /* ── Theme switch en settings ── */
-        .settings-theme-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .theme-switch {
-            position: relative;
-            width: 52px;
-            height: 30px;
-            border-radius: 15px;
-            border: none;
-            background: var(--border-color);
-            cursor: pointer;
-            padding: 0;
-            min-height: unset;
-            flex-shrink: 0;
-            transition: background 0.25s ease;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .theme-switch.dark {
-            background: var(--primary-color);
-        }
-
-        .theme-switch-thumb {
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: white;
-            transition: transform 0.25s ease;
-            pointer-events: none;
-        }
-
-        .theme-switch.dark .theme-switch-thumb {
-            transform: translateX(22px);
-        }
-
-        /* ── Fin Theme switch ── */
 
 
         /* -- 10h. Instalacion PWA -- */
