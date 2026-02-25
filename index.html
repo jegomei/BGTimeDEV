@@ -32,13 +32,6 @@
                 <polyline points="9 22 9 12 15 12 15 22"/>
             </svg>
         </button>
-        <button id="historyBtn" class="top-bar-btn" onclick="showHistory()" aria-label="Historial">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 8v4l3 3"/>
-                <path d="M3.05 11a9 9 0 1 1 .5 4"/>
-                <path d="M3 16v-5h5"/>
-            </svg>
-        </button>
         <button id="statsBtn" class="top-bar-btn" onclick="showStats()" aria-label="Estadísticas">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10"/>
@@ -428,23 +421,10 @@
         </div>
 
         <!-- Pantalla 7: Historial -->
-        <div id="historyScreen" class="screen">
-            <h1>Historial</h1>
-            <div id="historyContainer"></div>
-            <div class="button-group" style="margin-top: 16px;">
-                <div id="historyImportExportBtns" style="display:contents;">
-                    <button onclick="exportHistory()" style="display:flex;align-items:center;justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar</button>
-                    <button onclick="triggerImport()" style="display:flex;align-items:center;justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar</button>
-                </div>
-                <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="importHistory(event)">
-                <button class="secondary" onclick="clearHistory()" style="display:flex;align-items:center;justify-content:center;background:var(--btn-red-gradient);color:white;border:none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;flex-shrink:0;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>Borrar historial</button>
-            </div>
-        </div>
-
-        <!-- Pantalla: Estadísticas -->
+        <!-- Pantalla: Estadísticas e Historial -->
         <div id="statsScreen" class="screen">
             <h1>Estadísticas</h1>
-            <div class="stats-tabs">
+            <div class="stats-tabs" id="statsTabsContainer">
                 <div class="stats-tab-item">
                     <button class="stats-tab-btn" onclick="toggleStatsTab('game')" id="statsTab-game">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
@@ -471,9 +451,11 @@
                 </div>
 
             </div>
-            <div class="button-group" id="statsImportExportBtns" style="margin-top: 16px;">
-                <button onclick="exportHistory()" style="display:flex;align-items:center;justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar</button>
-                <button onclick="triggerImport()" style="display:flex;align-items:center;justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar</button>
+            <p id="statsLoginHint" class="stats-login-hint" style="display:none;">Para ver estadísticas, inicia sesión.</p>
+            <h1 style="margin-top:24px;">Historial</h1>
+            <div id="historyContainer"></div>
+            <div class="button-group" style="margin-top: 16px;">
+                <button class="secondary" onclick="clearHistory()" style="display:flex;align-items:center;justify-content:center;background:var(--btn-red-gradient);color:white;border:none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;flex-shrink:0;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>Borrar historial</button>
             </div>
         </div>
         <div id="settingsScreen" class="screen">
@@ -663,17 +645,6 @@
                 </h2>
                 <p class="settings-desc">Juegos en los que has participado. Pulsa + para editarlos y añadirlos a tus plantillas.</p>
                 <div id="historyGamesList" class="frecuent-list"></div>
-            </div>
-
-            <!-- Datos -->
-            <div class="settings-section" id="datosBackupSection">
-                <h2 style="display:flex;align-items:center;"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:8px;flex-shrink:0;"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Datos y backup</h2>
-                <p class="settings-desc">Exporta tus ajustes (jugadores habituales y plantillas propias) para usarlos en otro navegador o dispositivo.</p>
-                <div class="button-group" style="margin-top:10px;">
-                    <button onclick="exportSettings()" style="display:flex;align-items:center;justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar ajustes</button>
-                    <button onclick="triggerImportSettings()" style="display:flex;align-items:center;justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar ajustes</button>
-                    <input type="file" id="importSettingsInput" accept=".json" style="display:none;" onchange="importSettings(event)">
-                </div>
             </div>
 
         </div>

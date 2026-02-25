@@ -580,9 +580,9 @@
                     const updated = [entry, ...local].sort((a, b) => b.id - a.id).slice(0, 50);
                     window._memHistory = updated;
 
-                    // Refrescar UI si el historial está abierto
+                    // Refrescar UI si la pantalla de stats/historial está abierta
                     if (typeof renderHistoryList === 'function') {
-                        const hs = document.getElementById('historyScreen');
+                        const hs = document.getElementById('statsScreen');
                         if (hs && hs.classList.contains('active')) renderHistoryList();
                     }
 
@@ -620,14 +620,11 @@
                 // Mostrar sección de amigos
                 const friendsSec = document.getElementById('friendsSection');
                 if (friendsSec) friendsSec.style.display = '';
-                // Ocultar datos y backup (la nube ya se encarga de todo)
-                const backupSec = document.getElementById('datosBackupSection');
-                if (backupSec) backupSec.style.display = 'none';
-                // Ocultar botones de importar/exportar en historial y estadísticas
-                const histIE = document.getElementById('historyImportExportBtns');
-                if (histIE) histIE.style.display = 'none';
-                const statsIE = document.getElementById('statsImportExportBtns');
-                if (statsIE) statsIE.style.display = 'none';
+                // Mostrar estadísticas al loguearse
+                const statsTabs = document.getElementById('statsTabsContainer');
+                if (statsTabs) statsTabs.style.display = '';
+                const statsHint = document.getElementById('statsLoginHint');
+                if (statsHint) statsHint.style.display = 'none';
                 // Escuchar conexiones en tiempo real (y cargar lista)
                 if (typeof window._fbListenConnections === 'function') window._fbListenConnections();
                 if (typeof renderFriendsList === 'function') renderFriendsList();
@@ -646,14 +643,11 @@
                 signedIn.style.display  = 'none';
                 const friendsSec = document.getElementById('friendsSection');
                 if (friendsSec) friendsSec.style.display = 'none';
-                // Volver a mostrar datos y backup para usuarios sin cuenta
-                const backupSec = document.getElementById('datosBackupSection');
-                if (backupSec) backupSec.style.display = '';
-                // Mostrar botones de importar/exportar en historial y estadísticas
-                const histIE = document.getElementById('historyImportExportBtns');
-                if (histIE) histIE.style.display = '';
-                const statsIE = document.getElementById('statsImportExportBtns');
-                if (statsIE) statsIE.style.display = '';
+                // Bloquear estadísticas al desloguearse
+                const statsTabs = document.getElementById('statsTabsContainer');
+                if (statsTabs) statsTabs.style.display = 'none';
+                const statsHint = document.getElementById('statsLoginHint');
+                if (statsHint) statsHint.style.display = '';
                 // Detener listener de conexiones
                 if (window._connectionsUnsubscribe) {
                     window._connectionsUnsubscribe();

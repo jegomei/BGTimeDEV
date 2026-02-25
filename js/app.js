@@ -223,7 +223,6 @@
         let _currentScreenId = 'setupScreen';
 
         function setOverlayBtnState(screenId) {
-            document.getElementById('historyBtn').classList.toggle('btn-on', screenId === 'historyScreen');
             document.getElementById('settingsBtn').classList.toggle('btn-on', screenId === 'settingsScreen');
             document.getElementById('statsBtn').classList.toggle('btn-on', screenId === 'statsScreen');
         }
@@ -242,8 +241,8 @@
                 if (fromIdx !== -1 && toIdx !== -1) {
                     direction = toIdx >= fromIdx ? 1 : -1;
                 }
-                // historyScreen y statsScreen siempre entran desde la derecha
-                if (screenId === 'historyScreen' || screenId === 'statsScreen') direction = 1;
+                // statsScreen siempre entra desde la derecha
+                if (screenId === 'statsScreen') direction = 1;
             }
 
             // Ocultar todas salvo la entrante
@@ -2204,120 +2203,6 @@
         const SVG_MOON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
         const SVG_SUN  = '<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>';
 
-        // ── IMPORTACIÓN DESDE ENLACE ────────────────────────────────
-        let _pendingImport = null; // partida pendiente de confirmar importación
-
-        function huellаPartida(entry) {
-            // Huella de contenido para detectar duplicados en importaciones por URL
-            const r = (entry.results || []).map(r => `${r.player}:${r.score}`).sort().join(',');
-            return `${(entry.gameName || '').trim().toLowerCase()}|${(entry.date || '')}|${r}`;
-        }
-
-        function checkUrlImport() {
-            const params = new URLSearchParams(location.search);
-            const encoded = params.get('partida');
-            if (!encoded) return;
-            // Limpiar la URL para que no se reimporte si recarga
-            history.replaceState(null, '', location.pathname);
-            try {
-                const raw = JSON.parse(decodeURIComponent(escape(atob(encoded))));
-                _pendingImport = {
-                    gameName: raw.g || 'Partida',
-                    emoji:    raw.e || '🎲',
-                    date:     raw.d || '',
-                    results:  (raw.r || []).map(r => ({ player: r.p, score: r.s }))
-                };
-            } catch(e) {
-                _pendingImport = null;
-            }
-        }
-
-        function renderImportBanner() {
-            const container = document.getElementById('historyContainer');
-            if (!_pendingImport) return;
-
-            const entry = _pendingImport;
-
-            // Comprobar duplicado
-            const stored = getHistory();
-            const huellaEntrante = huellаPartida(entry);
-            const esDuplicado = stored.some(e => huellаPartida(e) === huellaEntrante);
-
-            if (esDuplicado) {
-                const msg = document.createElement('div');
-                msg.className = 'import-duplicate-msg';
-                msg.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>Ya tienes esta partida en tu historial</span>
-                `;
-                container.prepend(msg);
-                _pendingImport = null;
-                return;
-            }
-
-            // Construir resumen de jugadores
-            const sorted = [...entry.results].sort((a, b) => b.score - a.score);
-            const playersHtml = sorted.map((r, i) => `
-                <div class="import-banner-player ${i === 0 ? 'winner' : ''}">
-                    <span>${i === 0 ? '👑 ' : ''}${r.player}</span>
-                    <span class="import-banner-player-score">${r.score} pts</span>
-                </div>
-            `).join('');
-
-            const banner = document.createElement('div');
-            banner.className = 'import-banner';
-            banner.id = 'importBanner';
-            banner.innerHTML = `
-                <div class="import-banner-header">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    <span class="import-banner-title">Partida recibida — ¿añadir al historial?</span>
-                </div>
-                <div class="import-banner-body">
-                    <div class="import-banner-card">
-                        <div class="import-banner-game">${entry.emoji} ${entry.gameName}</div>
-                        <div class="import-banner-date">📅 ${formatRelativeDate(entry.date)}</div>
-                        <div class="import-banner-players">${playersHtml}</div>
-                    </div>
-                    <div class="import-banner-actions">
-                        <button onclick="confirmUrlImport()" style="background:var(--btn-green-gradient);color:white;border:none;border-radius:10px;">✅ Añadir</button>
-                        <button onclick="dismissUrlImport()" class="secondary" style="border-radius:10px;">Descartar</button>
-                    </div>
-                </div>
-            `;
-            container.prepend(banner);
-        }
-
-        function confirmUrlImport() {
-            if (!_pendingImport) return;
-            const entry = _pendingImport;
-            const stored = getHistory();
-            stored.unshift({
-                id: Date.now(),
-                date: entry.date,
-                gameName: entry.gameName,
-                emoji: entry.emoji,
-                results: entry.results,
-                scoringType: 'simple',
-                players: entry.results.map(r => r.player),
-                roundScores: [],
-                items: [],
-                itemScores: [],
-                roundItems: [],
-                roundItemScores: [],
-                usedTimer: false,
-                orderedPlayers: [],
-                playerTotalTimes: []
-            });
-            saveHistory(stored.slice(0, 50));
-            _pendingImport = null;
-            renderHistoryList();
-        }
-
-        function dismissUrlImport() {
-            _pendingImport = null;
-            document.getElementById('importBanner')?.remove();
-        }
-
         // ── HISTORIAL ──────────────────────────────────────────────
         function saveToHistory(results) {
             const history = getHistory();
@@ -2349,8 +2234,9 @@
 
             history.unshift(entry);
 
-            // Guardar máximo 50 partidas en local
-            saveHistory(history.slice(0, 50));
+            // Guardar máximo 50 partidas (logueado) o 5 (sin login)
+            const limit = window._fbIsLoggedIn?.() ? 50 : 5;
+            saveHistory(history.slice(0, limit));
 
             // Subir a Firestore si hay sesión
             if (window._fbSaveEntry) window._fbSaveEntry(entry);
@@ -2397,34 +2283,14 @@
 
         let previousScreenId = 'setupScreen';
 
-        function showHistory(showAll = false) {
-            const activeScreen = document.querySelector('.screen.active');
-            if (activeScreen && activeScreen.id === 'historyScreen') {
-                showScreen(previousScreenId, -1);
-                return;
-            }
-
-            if (activeScreen) previousScreenId = activeScreen.id;
-
-            renderHistoryList(showAll);
-
-            // Sincronizar con Firestore al abrir el historial (si hay sesión)
-            if (window._fbSyncHistory) window._fbSyncHistory();
-
-            // Mostrar usando showScreen para que tenga animación
-            showScreen('historyScreen', 1);
-        }
 
         function renderHistoryList(showAll = false) {
             const history = getHistory();
             const container = document.getElementById('historyContainer');
             container.innerHTML = '';
 
-            // Banner de importación desde URL (si hay partida pendiente)
-            if (_pendingImport) renderImportBanner();
-
             if (history.length === 0) {
-                if (!_pendingImport) container.innerHTML += '<div class="history-empty">Aún no hay partidas guardadas.<br>¡Juega una partida para verla aquí!</div>';
+                container.innerHTML += '<div class="history-empty">Aún no hay partidas guardadas.<br>¡Juega una partida para verla aquí!</div>';
                 return;
             }
 
@@ -2482,6 +2348,13 @@
                 btn.addEventListener('click', () => renderHistoryList(true));
                 container.appendChild(btn);
             }
+
+            if (!window._fbIsLoggedIn?.()) {
+                const msg = document.createElement('p');
+                msg.className = 'history-login-hint';
+                msg.textContent = 'Para guardar más de 5 partidas, inicia sesión.';
+                container.appendChild(msg);
+            }
         }
 
         function clearHistory() {
@@ -2524,7 +2397,7 @@
             // Borrar de Firestore si hay sesión
             if (window._fbDeleteEntry) window._fbDeleteEntry(entry.id);
 
-            showHistory();
+            showStats();
         }
 
         function showHistoryDetail(entry) {
@@ -2659,7 +2532,7 @@
                 if (window._fbDeleteEntry) window._fbDeleteEntry(entry.id);
             });
             removeHistory();
-            showHistory();
+            showStats();
         }
 
         function closeClearHistoryModal(e) {
@@ -2816,22 +2689,7 @@
             // Inicializar píldoras de jugadores (mostrará el botón +Añadir desde el inicio)
             updatePlayerPills();
 
-            // Detectar importación desde enlace compartido ANTES de restaurar estado
-            checkUrlImport();
-
-            if (_pendingImport) {
-                // Hay partida pendiente: ir directo al historial sin restaurar estado anterior
-                renderHistoryList();
-                // Forzar historyScreen como pantalla activa directamente (sin toggle)
-                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-                const hs = document.getElementById('historyScreen');
-                hs.classList.add('active');
-                hs.style.transform = 'translateX(0)';
-                document.getElementById('historyBtn').classList.add('btn-on');
-            } else {
-                // Flujo normal: restaurar estado guardado
-                restoreAppState();
-            }
+            restoreAppState();
         });
 
         // ── AUTOCOMPLETE BIBLIOTECA ────────────────────────────────
@@ -3089,78 +2947,6 @@
             document.getElementById('gameName').value = '';
             document.getElementById('libraryClearBtn').style.display = 'none';
             document.getElementById('libraryDropdown').style.display = 'none';
-        }
-
-        // ── EXPORTAR / IMPORTAR HISTORIAL ─────────────────────────
-        function exportHistory() {
-            const history = getHistory();
-            if (history.length === 0) {
-                alert('No hay partidas guardadas para exportar.');
-                return;
-            }
-            const timestamp = new Date().toISOString().slice(0, 10);
-            const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `bgtime_datos_${timestamp}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        function triggerImport() {
-            document.getElementById('importFileInput').value = '';
-            document.getElementById('importFileInput').click();
-        }
-
-        function importHistory(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    if (!Array.isArray(imported)) throw new Error();
-
-                    const existing = getHistory();
-                    const existingIds = new Set(existing.map(e => e.id));
-
-                    // Fusionar: añadir solo entradas que no existan ya (por id)
-                    const merged = [...existing];
-                    let added = 0;
-                    imported.forEach(entry => {
-                        if (!existingIds.has(entry.id)) {
-                            merged.push(entry);
-                            added++;
-                        }
-                    });
-
-                    // Reordenar por id descendente (más reciente primero) y limitar a 50
-                    merged.sort((a, b) => b.id - a.id);
-                    const newEntries = imported.filter(e => !existingIds.has(e.id));
-                    saveHistory(merged.slice(0, 50));
-                    // Si está logueado, subir las nuevas entradas a Firebase
-                    if (window._fbIsLoggedIn?.() && window._fbSaveEntry) {
-                        newEntries.forEach(e => window._fbSaveEntry(e));
-                    }
-
-                    // Refrescar la pantalla activa (historial o estadísticas)
-                    const active = document.querySelector('.screen.active');
-                    if (active && active.id === 'historyScreen') showHistory();
-                    else if (active && active.id === 'statsScreen') {
-                        // Cerrar tab abierto para que se recargue al volver a abrirlo
-                        if (_openStatsTab) {
-                            document.getElementById('statsTab-' + _openStatsTab).classList.remove('active');
-                            document.getElementById('statsCard-' + _openStatsTab).classList.remove('open');
-                            _openStatsTab = null;
-                        }
-                    }
-                    alert(`Importación completada: ${added} partida${added !== 1 ? 's' : ''} añadida${added !== 1 ? 's' : ''}.`);
-                } catch {
-                    alert('El archivo no es válido. Asegúrate de importar un JSON exportado desde esta app.');
-                }
-            };
-            reader.readAsText(file);
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -4011,44 +3797,6 @@
             // renderFriendsList se llama automáticamente via onSnapshot
         }
 
-        // ── Export / Import ajustes ───────────────────────────────────
-        function exportSettings() {
-            const data = {
-                frecuentPlayers: getFrecuentPlayers(),
-                customTemplates: getCustomTemplates()
-            };
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `bgtime_ajustes_${new Date().toISOString().slice(0,10)}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        function triggerImportSettings() {
-            document.getElementById('importSettingsInput').value = '';
-            document.getElementById('importSettingsInput').click();
-        }
-
-        function importSettings(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (typeof data !== 'object' || (!data.frecuentPlayers && !data.customTemplates)) throw new Error();
-                    if (Array.isArray(data.frecuentPlayers)) saveFrecuentPlayers(data.frecuentPlayers);
-                    if (Array.isArray(data.customTemplates)) saveCustomTemplates(data.customTemplates);
-                    renderSettingsScreen();
-                    alert('Ajustes importados correctamente.');
-                } catch {
-                    alert('El archivo no es válido.');
-                }
-            };
-            reader.readAsText(file);
-        }
         // ── Estadísticas ──────────────────────────────────────────
         let _openStatsTab = null;
 
@@ -4059,6 +3807,8 @@
                 return;
             }
             if (activeScreen) previousScreenId = activeScreen.id;
+            renderHistoryList();
+            if (window._fbSyncHistory) window._fbSyncHistory();
             showScreen('statsScreen', 1);
         }
 
