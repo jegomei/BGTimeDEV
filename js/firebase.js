@@ -185,6 +185,15 @@
 
                 window._memHistory = merged;
 
+                // Persistir en localStorage para que la próxima sesión empiece con datos frescos
+                try { localStorage.setItem('bgtime_history', JSON.stringify(merged)); } catch(e) {}
+
+                // Guardar marca de tiempo y uid del último sync exitoso
+                try {
+                    localStorage.setItem('bgtime_last_sync_ts',  String(Date.now()));
+                    localStorage.setItem('bgtime_last_sync_uid', auth.currentUser?.uid || '');
+                } catch(e) {}
+
                 if (typeof renderHistoryList === 'function') renderHistoryList();
 
                 showSyncToast(pendientesSubir.length > 0
@@ -286,6 +295,12 @@
                     .sort((a, b) => a.name.localeCompare(b.name));
                 window._memTemplates = finalTemplates;
 
+                // Persistir en localStorage para que la próxima sesión empiece con datos frescos
+                try {
+                    localStorage.setItem('bgtime_frecuent_players', JSON.stringify(finalFrecuent));
+                    localStorage.setItem('bgtime_custom_templates',  JSON.stringify(finalTemplates));
+                } catch(e) {}
+
                 // Subir estado final a Firestore
                 await setDoc(ref, {
                     frecuentPlayers: finalFrecuent,
@@ -296,6 +311,7 @@
 
                 // Refrescar UI
                 if (typeof rebuildLibrary === 'function') rebuildLibrary();
+                if (typeof renderLibraryShelves === 'function') renderLibraryShelves();
                 if (typeof renderSettingsScreen === 'function') {
                     const settingsEl = document.getElementById('settingsScreen');
                     if (settingsEl && settingsEl.classList.contains('active')) renderSettingsScreen();
@@ -613,9 +629,22 @@
                 window._memFrecuent  = JSON.parse(localStorage.getItem('bgtime_frecuent_players') || '[]');
                 window._memTemplates = JSON.parse(localStorage.getItem('bgtime_custom_templates') || '[]');
 
-                // Sincronizar historial y ajustes al iniciar sesión (sobrescribirá la caché con datos de Firebase)
-                window._fbSyncHistory();
-                window._fbSyncSettings();
+                // Comprobar si la última sincronización fue reciente (TTL = 30 min, mismo usuario)
+                const SYNC_TTL    = 30 * 60 * 1000;
+                const lastSyncTs  = parseInt(localStorage.getItem('bgtime_last_sync_ts')  || '0');
+                const lastSyncUid = localStorage.getItem('bgtime_last_sync_uid') || '';
+                const syncIsRecent = lastSyncUid === user.uid && (Date.now() - lastSyncTs) < SYNC_TTL;
+
+                if (syncIsRecent) {
+                    // Los datos en localStorage ya son frescos — reconstruir UI sin descargar Firestore
+                    if (typeof rebuildLibrary === 'function') rebuildLibrary();
+                    if (typeof renderLibraryShelves === 'function') renderLibraryShelves();
+                    showSyncToast('Datos al día ✓');
+                } else {
+                    // Sincronización completa contra Firestore
+                    window._fbSyncHistory();
+                    window._fbSyncSettings();
+                }
                 window._fbLoadProfile();
                 // Mostrar sección de amigos
                 const friendsSec = document.getElementById('friendsSection');
