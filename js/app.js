@@ -197,8 +197,7 @@
                     // Saltar configuración e ir directo a la tabla de puntuación
                     goToScoringScreenWithTemplate();
                 } else {
-                    document.getElementById('gameDisplayScoring').textContent = gameData.gameName;
-                    showScreen('scoringSetupScreen');
+                    setupScoring();
                 }
             } else {
                 // Con temporizador: configurar y empezar
@@ -223,8 +222,8 @@
 
         // Orden de las pantallas en el flujo principal (para determinar dirección)
         const SCREEN_ORDER = [
-            'setupScreen', 'playersScreen',
-            'orderPlayersScreen', 'timerScreen', 'scoringSetupScreen',
+            'setupScreen', 'scoringSetupScreen', 'playersScreen',
+            'orderPlayersScreen', 'timerScreen',
             'scoringScreen', 'resultsScreen'
         ];
         // settingsScreen and historyScreen are treated as overlays (always slide from right)
@@ -238,6 +237,21 @@
             if (_currentScreenId === _activeGameScreenId) return;
             const isFromOverlay = _currentScreenId === 'statsScreen' || _currentScreenId === 'settingsScreen';
             showScreen(_activeGameScreenId, isFromOverlay ? -1 : undefined);
+        }
+
+        function refreshActiveGameBanners() {
+            const name = gameData.gameName || '';
+            const ids = ['playersGameBanner', 'scoringSetupGameBanner', 'scoringGameBanner'];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (name) {
+                    el.querySelector('.active-game-name').textContent = name;
+                    el.style.display = '';
+                } else {
+                    el.style.display = 'none';
+                }
+            });
         }
 
         function setOverlayBtnState(screenId) {
@@ -291,6 +305,10 @@
                 } else {
                     footer.style.display = 'block';
                 }
+            }
+
+            if (['playersScreen', 'scoringSetupScreen', 'scoringScreen'].includes(screenId)) {
+                refreshActiveGameBanners();
             }
 
             saveAppState();
@@ -1047,8 +1065,7 @@
                 goToScoringScreenWithTemplate();
             } else {
                 document.getElementById('btnVolverTimer').style.display = 'flex';
-                document.getElementById('gameDisplayScoring').textContent = gameData.gameName;
-                showScreen('scoringSetupScreen');
+                setupScoring();
             }
         }
 
@@ -1079,8 +1096,7 @@
             if (gameData.hasTemplate) {
                 goToScoringScreenWithTemplate();
             } else {
-                document.getElementById('gameDisplayScoring').textContent = gameData.gameName;
-                showScreen('scoringSetupScreen');
+                setupScoring();
             }
         }
 
@@ -1091,8 +1107,11 @@
             }
             // Liberar Wake Lock al ir a scoring
             releaseWakeLock();
-            showScreen('scoringSetupScreen');
-            document.getElementById('gameDisplayScoring').textContent = gameData.gameName;
+            if (gameData.hasTemplate) {
+                goToScoringScreenWithTemplate();
+            } else {
+                setupScoring();
+            }
         }
 
         // Pantalla 4: Scoring Setup
@@ -2173,6 +2192,7 @@
                 playerTimeRemaining: null
             };
             
+            refreshActiveGameBanners();
             document.getElementById('gameName').value = '';
             document.getElementById('gameNameError').textContent = '';
             document.getElementById('reorderEachRound').checked = true;
@@ -2981,16 +3001,27 @@
                 err.style.display = '';
                 return;
             }
-            const libEntry = _libraryIndex.find(t => t.norm === normStr(name));
             closeAddGameSheet();
-            if (libEntry) {
-                openGameLibraryModal(libEntry.index);
-            } else {
-                document.getElementById('templateSelect').value = '';
-                document.getElementById('gameName').value = name;
-                window._pendingNewGameEmoji = emoji;
-                goToPlayersScreen();
+            document.getElementById('templateSelect').value = '';
+            document.getElementById('gameName').value = name;
+            window._pendingNewGameEmoji = emoji;
+            gameData.gameName = name;
+            document.getElementById('gameDisplayScoring').textContent = name;
+            document.getElementById('btnVolverTimer').style.display = 'none';
+            showScreen('scoringSetupScreen');
+        }
+
+        function confirmScoringConfig() {
+            const type = document.querySelector('input[name="scoringType"]:checked').value;
+            if (type === 'items' || type === 'rounds_with_items') {
+                const items = Array.from(document.querySelectorAll('.item-name')).filter(i => i.value.trim());
+                if (items.length === 0) {
+                    alert('Por favor, añade al menos un ítem puntuable');
+                    return;
+                }
             }
+            gameData.scoringType = type;
+            goToPlayersScreen();
         }
         // ─────────────────────────────────────────────────────────────
 

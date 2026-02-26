@@ -126,6 +126,16 @@
             }
         }
 
+        .active-game-banner {
+            font-size: 11px;
+            font-weight: 700;
+            color: #f97316;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            animation: game-btn-pulse 1.8s ease-in-out infinite;
+            margin-bottom: 2px;
+        }
+
         body {
             font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
             background: linear-gradient(150deg, var(--bg-gradient-start) 0%, var(--bg-gradient-mid) 50%, var(--bg-gradient-end) 100%);
@@ -611,6 +621,27 @@
         }
         .game-card-empty:active { transform: none; }
 
+        .add-game-full-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 16px;
+            margin: 4px 0 8px;
+            border-radius: 16px;
+            border: 2px dashed var(--primary-color);
+            background: rgba(102,126,234,0.05);
+            color: var(--primary-color);
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            -webkit-tap-highlight-color: transparent;
+            transition: opacity 0.15s;
+        }
+        .add-game-full-btn:active { opacity: 0.7; }
+
 
         /* -- 4b. Campos de nombre de jugadores -- */
         .player-input {
@@ -1002,10 +1033,12 @@
             display: flex;
             gap: 10px;
             width: 100%;
-            max-width: 320px;
+            align-items: stretch;
         }
         .add-game-emoji-input {
-            width: 60px;
+            width: 56px;
+            min-width: 56px;
+            max-width: 56px;
             flex-shrink: 0;
             text-align: center;
             font-size: 24px;
@@ -1014,6 +1047,7 @@
             border: 2px solid var(--border-color);
             background: var(--table-row-bg);
             color: var(--text-primary);
+            box-sizing: border-box;
         }
         .add-game-name-input {
             flex: 1;

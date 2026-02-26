@@ -65,11 +65,13 @@
             <input type="hidden" id="gameName" value="">
             <div id="gameNameError" class="error" style="display:none;"></div>
 
-            <!-- Cabecera -->
-            <div class="library-header">
-                <img src="iconoprincipal.png" class="app-logo-small" alt="BGTime logo">
-                <h1 class="library-title">Biblioteca de juegos</h1>
-            </div>
+            <h1>Biblioteca de juegos</h1>
+
+            <!-- Botón principal: añadir nuevo juego -->
+            <button class="add-game-full-btn" onclick="openAddGameSheet()">
+                <span>＋</span>
+                Añadir juego y comenzar partida
+            </button>
 
             <!-- Estanterías dinámicas (gestionadas por el usuario) -->
             <div id="libraryDynamicShelves"></div>
@@ -78,17 +80,6 @@
             <div class="library-shelf" id="shelfHistorial">
                 <div class="shelf-label">En el historial</div>
                 <div class="shelf-scroll" id="shelfHistorialCards"></div>
-            </div>
-
-            <!-- Estantería fija: Añadir nuevo juego -->
-            <div class="library-shelf">
-                <div class="shelf-label">Nuevo juego</div>
-                <div class="shelf-scroll">
-                    <button class="game-card game-card-add" onclick="openAddGameSheet()">
-                        <span class="game-card-emoji">＋</span>
-                        <span class="game-card-name">Añadir juego</span>
-                    </button>
-                </div>
             </div>
 
             <!-- Botón discreto: gestionar estanterías -->
@@ -102,6 +93,7 @@
 
         <!-- Pantalla 2: Jugadores -->
         <div id="playersScreen" class="screen">
+            <div class="active-game-banner" id="playersGameBanner" style="display:none;">Jugando a <span class="active-game-name"></span></div>
             <h1>Configurar partida</h1>
             <span id="gameNameTitle" style="display:none;"></span>
             
@@ -260,6 +252,7 @@
 
         <!-- Pantalla 4: Configuración de puntuación -->
         <div id="scoringSetupScreen" class="screen">
+            <div class="active-game-banner" id="scoringSetupGameBanner" style="display:none;">Jugando a <span class="active-game-name"></span></div>
             <h1>Configurar puntuación</h1>
             <!-- Span oculto para compatibilidad con JS -->
             <span id="gameDisplayScoring" style="display:none;"></span>
@@ -372,12 +365,13 @@
 
             <div class="button-group" style="justify-content:space-between;">
                 <button id="btnVolverTimer" class="secondary" onclick="returnToTimer()" style="display:none;align-items:center;justify-content:center;gap:6px;flex:0 0 auto;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;flex-shrink:0;"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>Volver</button>
-                <button onclick="setupScoring()" style="flex:1;">Continuar</button>
+                <button onclick="confirmScoringConfig()" style="flex:1;">Continuar</button>
             </div>
         </div>
 
         <!-- Pantalla 5: Ingreso de puntuaciones -->
         <div id="scoringScreen" class="screen">
+            <div class="active-game-banner" id="scoringGameBanner" style="display:none;">Jugando a <span class="active-game-name"></span></div>
             <h1>Ingresar Puntuaciones</h1>
             
             <span id="gameDisplayFinal" style="display:none;"></span>
@@ -807,7 +801,6 @@
             <div class="game-library-sheet-actions" style="margin-top:8px;">
                 <button onclick="submitAddGame()">Continuar</button>
             </div>
-            <button onclick="closeAddGameSheet(); openNewTemplateForm();" style="background:none;border:none;color:var(--text-secondary);font-size:13px;padding:8px 0 0 0;min-height:unset;text-decoration:underline;cursor:pointer;">Configurar puntuación personalizada</button>
         </div>
     </div>
 
