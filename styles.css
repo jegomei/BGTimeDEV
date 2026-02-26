@@ -904,6 +904,54 @@
             display: flex;
             align-items: center;
         }
+        .player-pill.pick-starter {
+            background: var(--primary-color);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(102,126,234,0.35);
+        }
+        .player-pill.pick-starter:hover {
+            filter: brightness(1.08);
+            box-shadow: 0 4px 14px rgba(102,126,234,0.45);
+        }
+        .player-pill.pick-starter.animating {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .player-pill.cycling {
+            animation: pillCycle 0.05s ease;
+        }
+        @keyframes pillCycle {
+            from { opacity: 0.3; transform: scale(0.82); }
+            to   { opacity: 1;   transform: scale(1); }
+        }
+
+        /* Banner de jugador inicial aleatorio */
+        #randomPlayerResult {
+            margin-top: 12px;
+            padding: 14px 16px;
+            background: var(--surface-secondary);
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            animation: fadeInUp 0.25s ease;
+        }
+        .random-player-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        #randomPlayerPill {
+            display: flex;
+            justify-content: center;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
 
 
         /* -- 4e. Chips de jugadores habituales -- */

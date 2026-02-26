@@ -487,6 +487,10 @@
             container.classList.remove('empty');
             container.innerHTML = '';
 
+            // Ocultar el banner de jugador inicial al rerenderizar (los jugadores pueden haber cambiado)
+            const resultDiv = document.getElementById('randomPlayerResult');
+            if (resultDiv) resultDiv.style.display = 'none';
+
             // Agregar pills de jugadores existentes
             players.forEach(player => {
                 const pill = document.createElement('div');
@@ -547,8 +551,91 @@
                     showAddPlayerModal();
                 });
             }
-            
+
             container.appendChild(addPill);
+
+            // Pill "Jugador inicial" (solo si hay al menos 1 jugador)
+            if (players.length >= 1) {
+                const pickerPill = document.createElement('div');
+                pickerPill.className = 'player-pill pick-starter';
+                pickerPill.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="16 3 21 3 21 8"/>
+                        <line x1="4" y1="20" x2="21" y2="3"/>
+                        <polyline points="21 16 21 21 16 21"/>
+                        <line x1="4" y1="4" x2="9" y2="9"/>
+                        <line x1="15" y1="15" x2="21" y2="21"/>
+                    </svg>
+                    <span class="player-pill-name">Jugador inicial</span>
+                `;
+                pickerPill.addEventListener('click', () => pickRandomStartingPlayer());
+                container.appendChild(pickerPill);
+            }
+        }
+
+        function pickRandomStartingPlayer() {
+            const playerRows = document.querySelectorAll('#playersContainer .player-input-row');
+            const players = [];
+            playerRows.forEach(row => {
+                const name = row.querySelector('.player-name').value.trim();
+                const colorBtn = row.querySelector('.player-color-btn');
+                if (name) {
+                    players.push({
+                        name,
+                        color: colorBtn.dataset.color,
+                        gradient: colorBtn.dataset.gradient || null
+                    });
+                }
+            });
+            if (players.length === 0) return;
+
+            // Elegir el ganador final de antemano
+            const finalPicked = players[Math.floor(Math.random() * players.length)];
+
+            // Mostrar el banner y desactivar el botón durante la animación
+            const resultDiv = document.getElementById('randomPlayerResult');
+            resultDiv.style.display = '';
+            const pickerPill = document.querySelector('.player-pill.pick-starter');
+            if (pickerPill) pickerPill.classList.add('animating');
+
+            const pillDiv = document.getElementById('randomPlayerPill');
+
+            function renderInPill(player, cycling) {
+                const isConnected = !!player.gradient;
+                pillDiv.innerHTML = '';
+                const pill = document.createElement('div');
+                pill.className = `player-pill ${isConnected ? 'connected' : 'regular'}${cycling ? ' cycling' : ''}`;
+                if (isConnected) {
+                    const m = player.gradient.match(/linear-gradient\(135deg,\s*([^,]+),\s*([^)]+)\)/);
+                    if (m) {
+                        pill.style.setProperty('--pill-color-1', m[1].trim());
+                        pill.style.setProperty('--pill-color-2', m[2].trim());
+                    } else {
+                        pill.style.setProperty('--pill-color-1', player.color);
+                        pill.style.setProperty('--pill-color-2', player.color);
+                    }
+                } else {
+                    pill.style.setProperty('--pill-color-1', player.color);
+                }
+                pill.innerHTML = `<span class="player-pill-name">${player.name}</span>`;
+                pillDiv.appendChild(pill);
+            }
+
+            // Mostrar el primer frame inmediatamente
+            renderInPill(players[Math.floor(Math.random() * players.length)], true);
+
+            let step = 0;
+            const totalSteps = 10; // 10 × 200ms = 2s
+            const interval = setInterval(() => {
+                step++;
+                if (step >= totalSteps) {
+                    clearInterval(interval);
+                    renderInPill(finalPicked, false);
+                    if (pickerPill) pickerPill.classList.remove('animating');
+                } else {
+                    renderInPill(players[Math.floor(Math.random() * players.length)], true);
+                }
+            }, 200);
         }
 
         function removePlayerFromPill(index) {
