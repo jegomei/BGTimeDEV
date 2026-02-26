@@ -233,10 +233,27 @@
         let _activeGameScreenId = null;
 
         function goToActiveGame() {
+            if (!_gameInProgress) {
+                showToast('No hay partida en curso');
+                return;
+            }
             if (!_activeGameScreenId) return;
             if (_currentScreenId === _activeGameScreenId) return;
             const isFromOverlay = _currentScreenId === 'statsScreen' || _currentScreenId === 'settingsScreen';
             showScreen(_activeGameScreenId, isFromOverlay ? -1 : undefined);
+        }
+
+        function showToast(msg) {
+            let t = document.getElementById('appToast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'appToast';
+                document.body.appendChild(t);
+            }
+            t.textContent = msg;
+            t.classList.add('toast-show');
+            clearTimeout(t._timeout);
+            t._timeout = setTimeout(() => t.classList.remove('toast-show'), 2500);
         }
 
         function refreshActiveGameBanners() {
@@ -378,7 +395,7 @@
             }
 
             _gameInProgress = true;
-            document.getElementById('activeGameBtn').style.display = '';
+            document.getElementById('activeGameBtn').classList.add('game-active');
             showScreen('playersScreen');
             updateRemoveButtons(true); // Skip pills update here
             updatePlayerPills(); // Update pills once at the end
@@ -2224,7 +2241,7 @@
         function doResetGame() {
             _gameInProgress = false;
             _activeGameScreenId = null;
-            document.getElementById('activeGameBtn').style.display = 'none';
+            document.getElementById('activeGameBtn').classList.remove('game-active');
             if (timerData.interval) {
                 clearInterval(timerData.interval);
             }
@@ -2724,7 +2741,7 @@
                 if (!screenId || !gd || screenId === 'setupScreen') return false;
 
                 _gameInProgress = true;
-                document.getElementById('activeGameBtn').style.display = '';
+                document.getElementById('activeGameBtn').classList.add('game-active');
 
                 // Restaurar gameData
                 Object.assign(gameData, gd);
@@ -2733,28 +2750,31 @@
                 Object.assign(timerData, td);
                 timerData.interval = null;
 
-                // Si estaba en pantalla de resultados, reconstruir la pantalla
+                // Reconstruir la pantalla del juego en el DOM
                 if (screenId === 'resultsScreen') {
                     renderResultsFromGameData();
-                }
-
-                // Si estaba puntuando, reconstruir la tabla
-                if (screenId === 'scoringScreen') {
+                    showScreen(screenId);
+                } else if (screenId === 'scoringScreen') {
                     document.getElementById('gameDisplayFinal').textContent = gameData.gameName;
-                    const container = document.getElementById('scoringTableContainer');
                     if (gameData.hasTemplate) {
-                        goToScoringScreenWithTemplate();
-                        return true;
+                        goToScoringScreenWithTemplate(); // llama showScreen('scoringScreen') internamente
                     } else {
                         showScreen(screenId);
-                        return true;
                     }
+                } else {
+                    showScreen(screenId);
                 }
 
-                showScreen(screenId);
+                // Siempre volver a la biblioteca al iniciar/recargar.
+                // El dado rojo permite retomar la partida en curso.
+                showScreen('setupScreen');
                 return true;
             } catch(e) {
                 localStorage.removeItem('bgtime_state');
+                // Resetear estado para que el dado no quede visible sin partida activa
+                _gameInProgress = false;
+                const btn = document.getElementById('activeGameBtn');
+                if (btn) btn.classList.remove('game-active');
                 return false;
             }
         }
