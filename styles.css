@@ -127,13 +127,31 @@
         }
 
         .active-game-banner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
             font-size: 11px;
             font-weight: 700;
             color: #f97316;
             text-transform: uppercase;
             letter-spacing: 0.6px;
+            text-align: center;
             animation: game-btn-pulse 1.8s ease-in-out infinite;
-            margin-bottom: 2px;
+            margin-top: 20px;
+        }
+        .abandon-game-btn {
+            background: none;
+            border: none;
+            color: #f97316;
+            cursor: pointer;
+            padding: 4px;
+            min-height: unset;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {

@@ -2146,6 +2146,21 @@
             doResetGame();
         }
 
+        function openAbandonGameModal() {
+            document.getElementById('confirmAbandonGameModal').style.display = 'flex';
+        }
+
+        function closeAbandonGameModal(e) {
+            if (e && e.target !== document.getElementById('confirmAbandonGameModal')) return;
+            document.getElementById('confirmAbandonGameModal').style.display = 'none';
+        }
+
+        function confirmAbandonGame() {
+            document.getElementById('confirmAbandonGameModal').style.display = 'none';
+            doResetGame();
+            showScreen('setupScreen');
+        }
+
         function doResetGame() {
             _gameInProgress = false;
             _activeGameScreenId = null;
