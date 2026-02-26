@@ -788,70 +788,11 @@
             showScreen('scoringScreen');
         }
 
-        // Utilidad de drag genérica para listas de filas táctiles.
-        // Retorna una función de limpieza (cleanup) que desregistra los listeners.
-        function _makeDragList(containerEl, rowSelector, onReorder) {
-            let drag = null;
-
-            const onStart = e => {
-                if (!e.target.closest('.drag-handle')) return;
-                e.preventDefault();
-                const row = e.target.closest(rowSelector);
-                if (!row) return;
-                const rows = [...containerEl.querySelectorAll(rowSelector)];
-                const rect = row.getBoundingClientRect();
-                const ghost = row.cloneNode(true);
-                ghost.classList.add('order-drag-ghost');
-                ghost.style.left = rect.left + 'px';
-                ghost.style.top  = rect.top  + 'px';
-                ghost.style.width = rect.width + 'px';
-                document.body.appendChild(ghost);
-                row.classList.add('order-dragging');
-                drag = {
-                    row, ghost,
-                    startY: e.touches[0].clientY,
-                    ghostTop: rect.top, dy: 0,
-                    startIdx: rows.indexOf(row),
-                    rowMids: rows.map(r => { const rr = r.getBoundingClientRect(); return rr.top + rr.height / 2; })
-                };
-            };
-
-            const onMove = e => {
-                if (!drag) return;
-                e.preventDefault();
-                drag.dy = e.touches[0].clientY - drag.startY;
-                drag.ghost.style.top = (drag.ghostTop + drag.dy) + 'px';
-            };
-
-            const onEnd = () => {
-                if (!drag) return;
-                const { row, ghost, ghostTop, rowMids, dy, startIdx } = drag;
-                drag = null;
-                ghost.remove();
-                row.classList.remove('order-dragging');
-                const ghostMid = ghostTop + dy + row.offsetHeight / 2;
-                let targetIdx = startIdx, minDist = Infinity;
-                rowMids.forEach((mid, i) => { const d = Math.abs(ghostMid - mid); if (d < minDist) { minDist = d; targetIdx = i; } });
-                if (targetIdx !== startIdx) onReorder(startIdx, targetIdx);
-            };
-
-            containerEl.addEventListener('touchstart', onStart, { passive: false });
-            window.addEventListener('touchmove', onMove, { passive: false });
-            window.addEventListener('touchend', onEnd);
-            return () => {
-                containerEl.removeEventListener('touchstart', onStart);
-                window.removeEventListener('touchmove', onMove);
-                window.removeEventListener('touchend', onEnd);
-            };
-        }
-
-        let _orderDragCleanup = null;
+        const SVG_UP_ARROW = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`;
 
         function renderOrderList() {
-            if (_orderDragCleanup) { _orderDragCleanup(); _orderDragCleanup = null; }
             const container = document.getElementById('orderOverlayContainer');
             container.innerHTML = '';
-            const svgDrag = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>`;
 
             gameData.orderedPlayers.forEach((player, index) => {
                 const div = document.createElement('div');
@@ -860,17 +801,13 @@
                 const grad = gameData.orderedGradients && gameData.orderedGradients[index];
                 div.style.background = grad || gameData.orderedColors[index];
                 div.style.borderColor = gameData.orderedColors[index];
+                const btnHtml = index === 0 ? '' :
+                    `<button class="order-up-btn" onclick="(function(){const arrays=[gameData.orderedPlayers,gameData.orderedColors,gameData.orderedGradients];arrays.forEach(a=>{const[it]=a.splice(${index},1);a.splice(${index-1},0,it)});renderOrderList();})()">${SVG_UP_ARROW}</button>`;
                 div.innerHTML = `
-                    <span class="drag-handle" style="color:rgba(255,255,255,0.7);">${svgDrag}</span>
                     <div class="order-player-name" style="color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.4);">${player}</div>
+                    ${btnHtml}
                 `;
                 container.appendChild(div);
-            });
-
-            _orderDragCleanup = _makeDragList(container, '.order-item', (fromIdx, toIdx) => {
-                const arrays = [gameData.orderedPlayers, gameData.orderedColors, gameData.orderedGradients];
-                arrays.forEach(arr => { const [item] = arr.splice(fromIdx, 1); arr.splice(toIdx, 0, item); });
-                renderOrderList();
             });
         }
 
@@ -1978,17 +1915,12 @@
 
         function _showTiebreakerModal(players, startPos, currentGroup, totalGroups, callback) {
             let orderedPlayers = [...players];
-            let tiebreakerDragCleanup = null;
 
             const overlay = document.createElement('div');
             overlay.className = 'tiebreaker-overlay';
             document.body.appendChild(overlay);
 
-            const svgDrag = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>`;
-
             function render() {
-                if (tiebreakerDragCleanup) { tiebreakerDragCleanup(); tiebreakerDragCleanup = null; }
-
                 const progressHTML = totalGroups > 1
                     ? `<div class="tiebreaker-progress">Empate ${currentGroup + 1} de ${totalGroups}</div>`
                     : '';
@@ -1998,7 +1930,7 @@
                 modal.className = 'tiebreaker-modal';
                 modal.innerHTML = `
                     <div class="tiebreaker-title">¡Hay un empate!</div>
-                    <div class="tiebreaker-subtitle">Estos jugadores han quedado empatados a <strong>${score} puntos</strong>.<br>Arrastra para ordenarlos.</div>
+                    <div class="tiebreaker-subtitle">Estos jugadores han quedado empatados a <strong>${score} puntos</strong>.<br>Usa las flechas para ordenarlos.</div>
                     ${progressHTML}
                     <div class="tiebreaker-list" id="tiebreakerList"></div>
                     <div class="tiebreaker-actions">
@@ -2009,27 +1941,27 @@
                 overlay.appendChild(modal);
 
                 const list = modal.querySelector('#tiebreakerList');
-                orderedPlayers.forEach((p) => {
+                orderedPlayers.forEach((p, idx) => {
                     const color = p.color || '#667eea';
                     const div = document.createElement('div');
                     div.className = 'order-item';
                     div.style.background = p.gradient || color;
                     div.style.borderColor = color;
                     div.innerHTML = `
-                        <span class="drag-handle" style="color:rgba(255,255,255,0.7);">${svgDrag}</span>
                         <span class="order-player-name" style="color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.4);">${p.player}</span>
+                        ${idx === 0 ? '' : `<button class="order-up-btn">${SVG_UP_ARROW}</button>`}
                     `;
+                    if (idx > 0) {
+                        div.querySelector('.order-up-btn').addEventListener('click', () => {
+                            const [item] = orderedPlayers.splice(idx, 1);
+                            orderedPlayers.splice(idx - 1, 0, item);
+                            render();
+                        });
+                    }
                     list.appendChild(div);
                 });
 
-                tiebreakerDragCleanup = _makeDragList(list, '.order-item', (fromIdx, toIdx) => {
-                    const [item] = orderedPlayers.splice(fromIdx, 1);
-                    orderedPlayers.splice(toIdx, 0, item);
-                    render();
-                });
-
                 modal.querySelector('#tiebreakerConfirm').addEventListener('click', () => {
-                    if (tiebreakerDragCleanup) { tiebreakerDragCleanup(); tiebreakerDragCleanup = null; }
                     document.body.removeChild(overlay);
                     callback(orderedPlayers);
                 });
@@ -3231,101 +3163,40 @@
             document.getElementById('shelvesManagerSheet').style.display = 'flex';
         }
 
-        let _shelfDragCleanup = null;
-
         function closeShelvesManager(e) {
             if (e && e.target !== document.getElementById('shelvesManagerSheet')) return;
-            if (_shelfDragCleanup) { _shelfDragCleanup(); _shelfDragCleanup = null; }
             document.getElementById('shelvesManagerSheet').style.display = 'none';
         }
 
         function renderShelvesManager() {
-            if (_shelfDragCleanup) { _shelfDragCleanup(); _shelfDragCleanup = null; }
             const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
             const container = document.getElementById('shelvesList');
             if (!container) return;
-            const svgDrag = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>`;
             const svgDel = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
             if (shelves.length === 0) {
                 container.innerHTML = '<p style="color:var(--text-secondary);font-size:14px;text-align:center;padding:12px 0;">No tienes estanterías. Crea una.</p>';
                 return;
             }
-            container.innerHTML = shelves.map(shelf => `
+            container.innerHTML = shelves.map((shelf, idx) => `
                 <div class="shelf-manager-row" data-id="${shelf.id}">
-                    <span class="shelf-drag-handle">${svgDrag}</span>
                     <span class="shelf-manager-name" onclick="renameShelf('${shelf.id}')">${shelf.name}</span>
                     <div class="shelf-manager-actions">
+                        ${idx === 0 ? '' : `<button class="order-up-btn" onclick="moveShelfUp('${shelf.id}')">${SVG_UP_ARROW}</button>`}
                         <button class="custom-tpl-btn" onclick="deleteShelf('${shelf.id}')" style="color:#e74c3c;">${svgDel}</button>
                     </div>
                 </div>
             `).join('');
-            _initShelfDrag();
         }
 
-        function _initShelfDrag() {
-            const container = document.getElementById('shelvesList');
-            if (!container) return;
-            let drag = null;
-
-            const onStart = e => {
-                if (!e.target.closest('.shelf-drag-handle')) return;
-                e.preventDefault();
-                const row = e.target.closest('.shelf-manager-row');
-                if (!row) return;
-                const rows = [...container.querySelectorAll('.shelf-manager-row')];
-                const rect = row.getBoundingClientRect();
-                const ghost = row.cloneNode(true);
-                ghost.className = 'shelf-drag-ghost';
-                ghost.style.left = rect.left + 'px';
-                ghost.style.top  = rect.top  + 'px';
-                ghost.style.width = rect.width + 'px';
-                document.body.appendChild(ghost);
-                row.classList.add('shelf-dragging');
-                drag = {
-                    row, ghost, id: row.dataset.id,
-                    startY: e.touches[0].clientY,
-                    ghostTop: rect.top, dy: 0,
-                    rowMids: rows.map(r => { const rr = r.getBoundingClientRect(); return rr.top + rr.height / 2; })
-                };
-            };
-
-            const onMove = e => {
-                if (!drag) return;
-                e.preventDefault();
-                drag.dy = e.touches[0].clientY - drag.startY;
-                drag.ghost.style.top = (drag.ghostTop + drag.dy) + 'px';
-            };
-
-            const onEnd = () => {
-                if (!drag) return;
-                const { row, ghost, id, ghostTop, rowMids, dy } = drag;
-                drag = null;
-                ghost.remove();
-                row.classList.remove('shelf-dragging');
-                const rows = [...container.querySelectorAll('.shelf-manager-row')];
-                const startIdx = rows.findIndex(r => r.dataset.id === id);
-                const ghostMid = ghostTop + dy + row.offsetHeight / 2;
-                let targetIdx = startIdx, minDist = Infinity;
-                rowMids.forEach((mid, i) => { const d = Math.abs(ghostMid - mid); if (d < minDist) { minDist = d; targetIdx = i; } });
-                if (targetIdx !== startIdx) {
-                    const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
-                    const [item] = shelves.splice(startIdx, 1);
-                    shelves.splice(targetIdx, 0, item);
-                    shelves.forEach((s, i) => s.order = i);
-                    saveShelves(shelves);
-                    renderShelvesManager();
-                    renderLibraryShelves();
-                }
-            };
-
-            container.addEventListener('touchstart', onStart, { passive: false });
-            window.addEventListener('touchmove', onMove, { passive: false });
-            window.addEventListener('touchend', onEnd);
-            _shelfDragCleanup = () => {
-                container.removeEventListener('touchstart', onStart);
-                window.removeEventListener('touchmove', onMove);
-                window.removeEventListener('touchend', onEnd);
-            };
+        function moveShelfUp(shelfId) {
+            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
+            const idx = shelves.findIndex(s => s.id === shelfId);
+            if (idx <= 0) return;
+            [shelves[idx - 1], shelves[idx]] = [shelves[idx], shelves[idx - 1]];
+            shelves.forEach((s, i) => s.order = i);
+            saveShelves(shelves);
+            renderShelvesManager();
+            renderLibraryShelves();
         }
 
         function addShelf() {
@@ -3401,7 +3272,7 @@
         }
         function saveFrecuentPlayers(list) {
             if (window._fbIsLoggedIn?.()) { window._memFrecuent = list; }
-            else { localStorage.setItem('bgtime_frecuent_players', JSON.stringify(list)); }
+            localStorage.setItem('bgtime_frecuent_players', JSON.stringify(list));
             if (window._fbSaveSettings) window._fbSaveSettings();
         }
         function getCustomTemplates() {
@@ -3410,7 +3281,7 @@
         }
         function saveCustomTemplates(list) {
             if (window._fbIsLoggedIn?.()) { window._memTemplates = list; }
-            else { localStorage.setItem('bgtime_custom_templates', JSON.stringify(list)); }
+            localStorage.setItem('bgtime_custom_templates', JSON.stringify(list));
             rebuildLibrary();
             if (window._fbSaveSettings) window._fbSaveSettings();
         }

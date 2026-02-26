@@ -239,7 +239,7 @@
                 const frecuent  = window._memFrecuent  || [];
                 const templates = window._memTemplates || [];
                 const ref = doc(db, 'users', user.uid, 'settings', 'data');
-                await setDoc(ref, { frecuentPlayers: frecuent, customTemplates: templates });
+                await setDoc(ref, { frecuentPlayers: frecuent, customTemplates: templates }, { merge: true });
             } catch (e) {
                 console.warn('Error guardando ajustes en Firestore:', e);
             }
