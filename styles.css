@@ -1210,9 +1210,31 @@
             display: flex;
             gap: 4px;
         }
-        .shelf-manager-actions .custom-tpl-btn:disabled {
-            opacity: 0.25;
-            cursor: default;
+        .shelf-drag-handle {
+            color: var(--text-secondary);
+            opacity: 0.45;
+            padding: 8px 6px 8px 0;
+            cursor: grab;
+            touch-action: none;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .shelf-drag-handle:active { cursor: grabbing; opacity: 0.7; }
+        .shelf-manager-row.shelf-dragging { opacity: 0.25; }
+        .shelf-drag-ghost {
+            position: fixed;
+            z-index: 9999;
+            pointer-events: none;
+            background: var(--container-bg);
+            box-shadow: 0 6px 24px rgba(0,0,0,0.22);
+            border-radius: 10px;
+            padding: 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border-bottom: none !important;
         }
 
         /* -- 4h. Configuracion del modo de puntuacion -- */

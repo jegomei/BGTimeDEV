@@ -2429,9 +2429,14 @@
             container.innerHTML = '';
 
             if (history.length === 0) {
-                container.innerHTML += '<div class="history-empty">Aún no hay partidas guardadas.<br>¡Juega una partida para verla aquí!</div>';
+                if (_historyLoadPending) {
+                    container.innerHTML = '<div class="history-empty">Cargando partidas...</div>';
+                } else {
+                    container.innerHTML = '<div class="history-empty">Aún no hay partidas guardadas.<br>¡Juega una partida para verla aquí!</div>';
+                }
                 return;
             }
+            _historyLoadPending = false;
 
             const LIMIT = 5;
             const visible = showAll ? history : history.slice(0, LIMIT);
@@ -2501,6 +2506,7 @@
         }
 
         let _currentHistoryEntry = null;
+        let _historyLoadPending = false;
 
         function closeHistoryDetailModal(e) {
             if (e && e.target !== document.getElementById('historyDetailModal')) return;
@@ -2534,7 +2540,7 @@
             // Borrar de Firestore si hay sesión
             if (window._fbDeleteEntry) window._fbDeleteEntry(entry.id);
 
-            showStats();
+            renderHistoryList();
         }
 
         function showHistoryDetail(entry) {
@@ -2978,25 +2984,42 @@
             if (!container) return;
             const history = getHistory();
             const templates = getCustomTemplates ? getCustomTemplates() : [];
-            // Juegos que ya están asignados a alguna estantería
+
+            // Nombres de juegos ya asignados a alguna estantería
             const shelfedNames = new Set(
                 templates.filter(t => t.shelfId).map(t => normStr(t.name))
             );
             const seen = new Set();
             const games = [];
+
+            // 1. Custom templates SIN estantería (creados pero no asignados)
+            templates.filter(t => !t.shelfId).forEach(tpl => {
+                const key = normStr(tpl.name);
+                if (seen.has(key)) return;
+                seen.add(key);
+                const libEntry = _libraryIndex.find(e => e.norm === key);
+                games.push({
+                    name: tpl.name,
+                    emoji: tpl.emoji || '🎲',
+                    libIndex: libEntry ? libEntry.index : null
+                });
+            });
+
+            // 2. Juegos del historial sin custom template (y no ya vistos)
             for (const entry of history) {
                 if (!entry.gameName) continue;
                 const key = normStr(entry.gameName);
                 if (seen.has(key)) continue;
                 if (shelfedNames.has(key)) continue;
                 seen.add(key);
-                const libEntry = _libraryIndex.find(t => t.norm === key);
+                const libEntry = _libraryIndex.find(e => e.norm === key);
                 games.push({
                     name: entry.gameName,
                     emoji: entry.emoji || (libEntry ? libEntry.emoji : '🎲'),
                     libIndex: libEntry ? libEntry.index : null
                 });
             }
+
             if (games.length === 0) {
                 container.innerHTML = `<div class="game-card game-card-empty">
                     <span class="game-card-emoji">🎲</span>
@@ -3161,32 +3184,101 @@
             document.getElementById('shelvesManagerSheet').style.display = 'flex';
         }
 
+        let _shelfDragCleanup = null;
+
         function closeShelvesManager(e) {
             if (e && e.target !== document.getElementById('shelvesManagerSheet')) return;
+            if (_shelfDragCleanup) { _shelfDragCleanup(); _shelfDragCleanup = null; }
             document.getElementById('shelvesManagerSheet').style.display = 'none';
         }
 
         function renderShelvesManager() {
+            if (_shelfDragCleanup) { _shelfDragCleanup(); _shelfDragCleanup = null; }
             const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
             const container = document.getElementById('shelvesList');
             if (!container) return;
-            const svgUp = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`;
-            const svgDown = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+            const svgDrag = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>`;
             const svgDel = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
             if (shelves.length === 0) {
                 container.innerHTML = '<p style="color:var(--text-secondary);font-size:14px;text-align:center;padding:12px 0;">No tienes estanterías. Crea una.</p>';
                 return;
             }
-            container.innerHTML = shelves.map((shelf, idx) => `
-                <div class="shelf-manager-row">
+            container.innerHTML = shelves.map(shelf => `
+                <div class="shelf-manager-row" data-id="${shelf.id}">
+                    <span class="shelf-drag-handle">${svgDrag}</span>
                     <span class="shelf-manager-name" onclick="renameShelf('${shelf.id}')">${shelf.name}</span>
                     <div class="shelf-manager-actions">
-                        <button class="custom-tpl-btn" onclick="moveShelfUp('${shelf.id}')" ${idx === 0 ? 'disabled' : ''}>${svgUp}</button>
-                        <button class="custom-tpl-btn" onclick="moveShelfDown('${shelf.id}')" ${idx === shelves.length - 1 ? 'disabled' : ''}>${svgDown}</button>
                         <button class="custom-tpl-btn" onclick="deleteShelf('${shelf.id}')" style="color:#e74c3c;">${svgDel}</button>
                     </div>
                 </div>
             `).join('');
+            _initShelfDrag();
+        }
+
+        function _initShelfDrag() {
+            const container = document.getElementById('shelvesList');
+            if (!container) return;
+            let drag = null;
+
+            const onStart = e => {
+                if (!e.target.closest('.shelf-drag-handle')) return;
+                e.preventDefault();
+                const row = e.target.closest('.shelf-manager-row');
+                if (!row) return;
+                const rows = [...container.querySelectorAll('.shelf-manager-row')];
+                const rect = row.getBoundingClientRect();
+                const ghost = row.cloneNode(true);
+                ghost.className = 'shelf-drag-ghost';
+                ghost.style.left = rect.left + 'px';
+                ghost.style.top  = rect.top  + 'px';
+                ghost.style.width = rect.width + 'px';
+                document.body.appendChild(ghost);
+                row.classList.add('shelf-dragging');
+                drag = {
+                    row, ghost, id: row.dataset.id,
+                    startY: e.touches[0].clientY,
+                    ghostTop: rect.top, dy: 0,
+                    rowMids: rows.map(r => { const rr = r.getBoundingClientRect(); return rr.top + rr.height / 2; })
+                };
+            };
+
+            const onMove = e => {
+                if (!drag) return;
+                e.preventDefault();
+                drag.dy = e.touches[0].clientY - drag.startY;
+                drag.ghost.style.top = (drag.ghostTop + drag.dy) + 'px';
+            };
+
+            const onEnd = () => {
+                if (!drag) return;
+                const { row, ghost, id, ghostTop, rowMids, dy } = drag;
+                drag = null;
+                ghost.remove();
+                row.classList.remove('shelf-dragging');
+                const rows = [...container.querySelectorAll('.shelf-manager-row')];
+                const startIdx = rows.findIndex(r => r.dataset.id === id);
+                const ghostMid = ghostTop + dy + row.offsetHeight / 2;
+                let targetIdx = startIdx, minDist = Infinity;
+                rowMids.forEach((mid, i) => { const d = Math.abs(ghostMid - mid); if (d < minDist) { minDist = d; targetIdx = i; } });
+                if (targetIdx !== startIdx) {
+                    const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
+                    const [item] = shelves.splice(startIdx, 1);
+                    shelves.splice(targetIdx, 0, item);
+                    shelves.forEach((s, i) => s.order = i);
+                    saveShelves(shelves);
+                    renderShelvesManager();
+                    renderLibraryShelves();
+                }
+            };
+
+            container.addEventListener('touchstart', onStart, { passive: false });
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onEnd);
+            _shelfDragCleanup = () => {
+                container.removeEventListener('touchstart', onStart);
+                window.removeEventListener('touchmove', onMove);
+                window.removeEventListener('touchend', onEnd);
+            };
         }
 
         function addShelf() {
@@ -3208,7 +3300,7 @@
             const shelves = getShelves();
             const shelf = shelves.find(s => s.id === shelfId);
             if (!shelf) return;
-            if (!confirm(`¿Eliminar la estantería "${shelf.name}"? Los juegos quedarán en "En el historial".`)) return;
+            if (!confirm(`¿Eliminar la estantería "${shelf.name}"? Los juegos quedarán en "Sin estantería".`)) return;
             const updated = shelves.filter(s => s.id !== shelfId);
             // Renumber order
             updated.forEach((s, i) => s.order = i);
@@ -3234,26 +3326,6 @@
             const newName = prompt('Nuevo nombre:', shelf.name);
             if (!newName || !newName.trim()) return;
             shelf.name = newName.trim();
-            saveShelves(shelves);
-            renderShelvesManager();
-            renderLibraryShelves();
-        }
-
-        function moveShelfUp(shelfId) {
-            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
-            const idx = shelves.findIndex(s => s.id === shelfId);
-            if (idx <= 0) return;
-            [shelves[idx - 1].order, shelves[idx].order] = [shelves[idx].order, shelves[idx - 1].order];
-            saveShelves(shelves);
-            renderShelvesManager();
-            renderLibraryShelves();
-        }
-
-        function moveShelfDown(shelfId) {
-            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
-            const idx = shelves.findIndex(s => s.id === shelfId);
-            if (idx === -1 || idx >= shelves.length - 1) return;
-            [shelves[idx].order, shelves[idx + 1].order] = [shelves[idx + 1].order, shelves[idx].order];
             saveShelves(shelves);
             renderShelvesManager();
             renderLibraryShelves();
@@ -4307,6 +4379,7 @@
             const activeScreen = document.querySelector('.screen.active');
             if (activeScreen && activeScreen.id === 'statsScreen') return;
             if (activeScreen) previousScreenId = activeScreen.id;
+            if (window._fbIsLoggedIn?.() && window._fbSyncHistory) _historyLoadPending = true;
             renderHistoryList();
             if (window._fbSyncHistory) window._fbSyncHistory();
             showScreen('statsScreen', 1);
