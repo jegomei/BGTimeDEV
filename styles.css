@@ -35,8 +35,8 @@
 
         :root {
             --bg-gradient-start: #3a28c8; /* azul brillante (derivado del favicon) */
-            --bg-gradient-mid: #240c79;   /* rgb(36,12,121) — azul profundo del favicon */
-            --bg-gradient-end: #210557;   /* rgb(33,5,87) — azul más oscuro del favicon */
+            --bg-gradient-mid: #3a28c8;   /* rgb(36,12,121) — azul profundo del favicon */
+            --bg-gradient-end: #220855;   /* rgb(33,5,87) — azul más oscuro del favicon */
             --container-bg: #ffffff;
             --text-primary: #333333;
             --text-secondary: #666666;
@@ -58,7 +58,7 @@
             --info-box-bg: #e3f2fd;
             --info-box-border: #2196f3;
             /* Gradientes de botones */
-            --btn-primary-gradient: linear-gradient(135deg, #846dd2 0%, #3a28c8 100%);
+            --btn-primary-gradient: linear-gradient(135deg, #3a28c8 0%, #320e79 100%);
             --btn-primary-gradient-hover: linear-gradient(135deg, #5a6fd6 0%, #6a3d94 100%);
             --btn-green-gradient: linear-gradient(135deg, #2ecc71 0%, #1abc9c 100%);
             --btn-green-gradient-hover: linear-gradient(135deg, #27ae60 0%, #16a085 100%);
@@ -1031,6 +1031,28 @@
             box-shadow: 0 2px 10px rgba(102,126,234,0.35);
             text-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
+        /* -- 4f2. scoringSetupScreen en modo bottom sheet (editar plantilla) -- */
+        #scoringSetupScreen.sheet-mode {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            background: rgba(0,0,0,0.55);
+            display: flex !important;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 0;
+            overflow: hidden;
+        }
+        #scoringSetupScreen.sheet-mode .scoring-sheet-inner {
+            background: var(--container-bg);
+            border-radius: 20px 20px 0 0;
+            padding: 28px 20px 40px;
+            max-height: 88vh;
+            overflow-y: auto;
+            width: 100%;
+            animation: sheetUp 0.25s cubic-bezier(0.34,1.2,0.64,1);
+        }
+
         /* -- 4g. Modal biblioteca (bottom sheet) -- */
         #gameLibraryModal, #addGameSheet {
             display: none;
@@ -3276,6 +3298,27 @@
         }
         .tpl-form-group {
             margin-bottom: 12px;
+        }
+        .tpl-edit-scoring-btn {
+            width: 100%;
+            background: var(--surface-secondary);
+            border: 1.5px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 10px;
+            padding: 11px 14px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            min-height: unset;
+            margin: 0;
+            box-shadow: none;
+        }
+        .tpl-edit-scoring-btn:active {
+            background: var(--border-color);
         }
         .tpl-form-group label {
             font-size: 13px;

@@ -66,6 +66,7 @@
             <div id="gameNameError" class="error" style="display:none;"></div>
 
             <h1>Biblioteca de juegos</h1>
+            
 
             <!-- Botón principal: añadir nuevo juego -->
             <button class="add-game-full-btn" onclick="openAddGameSheet()">
@@ -256,6 +257,7 @@
 
         <!-- Pantalla 4: Configuración de puntuación -->
         <div id="scoringSetupScreen" class="screen">
+          <div class="scoring-sheet-inner">
             <h1>Configurar puntuación</h1>
             <!-- Span oculto para compatibilidad con JS -->
             <span id="gameDisplayScoring" style="display:none;"></span>
@@ -368,9 +370,10 @@
 
             <div class="button-group" style="justify-content:space-between;">
                 <button id="btnVolverTimer" class="secondary" onclick="returnToTimer()" style="display:none;align-items:center;justify-content:center;gap:6px;flex:0 0 auto;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;flex-shrink:0;"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>Volver</button>
-                <button onclick="confirmScoringConfig()" style="flex:1;">Continuar</button>
+                <button id="confirmScoringBtn" onclick="confirmScoringConfig()" style="flex:1;">Continuar</button>
             </div>
             <div class="active-game-banner" id="scoringSetupGameBanner" style="display:none;"><span>Jugando a <span class="active-game-name"></span></span><button class="abandon-game-btn" onclick="openAbandonGameModal()" aria-label="Abandonar partida"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div>
+          </div>
         </div>
 
         <!-- Pantalla 5: Ingreso de puntuaciones -->
@@ -644,26 +647,10 @@
                     </select>
                 </div>
                 <div class="tpl-form-group">
-                    <label>Tipo de puntuación</label>
-                    <select id="tplScoringType" class="tpl-input" onchange="onTplScoringChange()">
-                        <option value="rounds">Por rondas simples</option>
-                        <option value="items">Por ítems al final</option>
-                        <option value="rounds_with_items">Rondas con ítems</option>
-                        <option value="target_score">Hasta puntuación objetivo</option>
-                    </select>
-                </div>
-                <div id="tplRoundsGroup" class="tpl-form-group">
-                    <label>Número de rondas</label>
-                    <input type="number" id="tplNumRounds" value="5" min="1" max="99" class="tpl-input tpl-input-sm">
-                </div>
-                <div id="tplTargetGroup" class="tpl-form-group" style="display:none;">
-                    <label>Puntuación objetivo</label>
-                    <input type="number" id="tplTargetScore" value="40" min="1" class="tpl-input tpl-input-sm">
-                </div>
-                <div id="tplItemsGroup" class="tpl-form-group" style="display:none;">
-                    <label>Ítems puntuables</label>
-                    <div id="tplItemsList"></div>
-                    <button onclick="addTplItem()" style="margin-top:6px;padding:8px 14px;font-size:14px;">+ Ítem</button>
+                    <button class="tpl-edit-scoring-btn" onclick="openTemplateScoringEdit()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Editar plantilla de puntuación
+                    </button>
                 </div>
                 <div id="tplMaxPlayersGroup" class="tpl-form-group">
                     <label>Máx. jugadores <span style="font-weight:400;font-size:12px;">(opcional)</span></label>

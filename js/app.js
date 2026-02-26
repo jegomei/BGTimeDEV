@@ -2229,6 +2229,14 @@
         }
 
         function goToLibrary() {
+            if (_editingTemplateScoringMode) {
+                _editingTemplateScoringMode = false;
+                _pendingTemplateEdit = null;
+                document.getElementById('confirmScoringBtn').textContent = 'Continuar';
+                const scoringEl = document.getElementById('scoringSetupScreen');
+                scoringEl.classList.remove('sheet-mode');
+                scoringEl.style.display = '';
+            }
             showScreen('setupScreen');
         }
 
@@ -3085,11 +3093,18 @@
         }
 
         function openAddGameSheet() {
-            document.getElementById('addGameEmoji').value = '';
-            document.getElementById('addGameName').value = '';
-            document.getElementById('addGameError').style.display = 'none';
-            document.getElementById('addGameSheet').style.display = 'flex';
-            setTimeout(() => document.getElementById('addGameName').focus(), 100);
+            _editingTemplateIndex = null;
+            _tplScoringConfigured = false;
+            _pendingHistoryTpl = null;
+            document.getElementById('templateFormTitle').textContent = 'Nuevo juego';
+            document.getElementById('tplSaveBtn').textContent = 'Guardar';
+            document.getElementById('tplEmoji').value = '';
+            document.getElementById('tplName').value = '';
+            document.getElementById('tplMaxPlayers').value = '';
+            document.getElementById('tplFormError').textContent = '';
+            populateTplShelfSelect('');
+            document.getElementById('templateFormModal').style.display = 'flex';
+            setTimeout(() => document.getElementById('tplName').focus(), 100);
         }
 
         function closeAddGameSheet(e) {
@@ -3119,14 +3134,19 @@
         function confirmScoringConfig() {
             const type = document.querySelector('input[name="scoringType"]:checked').value;
             if (type === 'items' || type === 'rounds_with_items') {
-                const items = Array.from(document.querySelectorAll('.item-name')).filter(i => i.value.trim());
+                const selClass = type === 'items' ? '.item-name' : '.round-item-name';
+                const items = Array.from(document.querySelectorAll(selClass)).filter(i => i.value.trim());
                 if (items.length === 0) {
                     alert('Por favor, añade al menos un ítem puntuable');
                     return;
                 }
             }
-            gameData.scoringType = type;
-            goToPlayersScreen();
+            if (_editingTemplateScoringMode) {
+                saveTemplateScoringEdit();
+            } else {
+                gameData.scoringType = type;
+                goToPlayersScreen();
+            }
         }
         // ─────────────────────────────────────────────────────────────
 
@@ -3700,22 +3720,23 @@
             const entry = history.find(e => e.gameName.trim().toLowerCase() === gameName.trim().toLowerCase());
             if (!entry) return;
 
-            // Pre-rellenar el formulario con los datos del historial y abrirlo
             _editingTemplateIndex = null;
-            document.getElementById('templateFormTitle').textContent = 'Nueva plantilla';
-            document.getElementById('tplSaveBtn').textContent = 'Añadir a mis plantillas';
+            _tplScoringConfigured = true;
+            _pendingHistoryTpl = {
+                scoringType: entry.scoringType || 'rounds',
+                numRounds: entry.numRounds || 5,
+                targetScore: entry.targetScore || 40,
+                roundScoringMode: entry.roundScoringMode || 'all_at_end',
+                items: entry.items || [],
+                roundItems: entry.roundItems || [],
+            };
+            document.getElementById('templateFormTitle').textContent = 'Nuevo juego';
+            document.getElementById('tplSaveBtn').textContent = 'Guardar';
             document.getElementById('tplEmoji').value = entry.emoji || '🎲';
             document.getElementById('tplName').value = entry.gameName;
-            document.getElementById('tplScoringType').value = entry.scoringType || 'rounds';
-            document.getElementById('tplNumRounds').value = entry.numRounds || 5;
-            document.getElementById('tplTargetScore').value = entry.targetScore || 40;
             document.getElementById('tplMaxPlayers').value = '';
             document.getElementById('tplFormError').textContent = '';
-            document.getElementById('tplItemsList').innerHTML = '';
             populateTplShelfSelect('');
-            const items = entry.items || entry.roundItems || [];
-            items.forEach(it => addTplItem(it.name || it, it.negative || false));
-            onTplScoringChange();
             document.getElementById('templateFormModal').style.display = 'flex';
         }
 
@@ -3773,6 +3794,10 @@
         }
         // ── Formulario de plantilla ───────────────────────────────────
         let _editingTemplateIndex = null;
+        let _editingTemplateScoringMode = false;
+        let _pendingTemplateEdit = null;
+        let _tplScoringConfigured = false;
+        let _pendingHistoryTpl = null;
 
         function populateTplShelfSelect(selectedId) {
             const sel = document.getElementById('tplShelf');
@@ -3802,27 +3827,163 @@
         function editCustomTemplate(index) {
             const tpl = getCustomTemplates()[index];
             _editingTemplateIndex = index;
+            _tplScoringConfigured = true;
+            _pendingHistoryTpl = null;
             document.getElementById('templateFormTitle').textContent = 'Editar plantilla';
             document.getElementById('tplSaveBtn').textContent = 'Guardar';
             document.getElementById('tplEmoji').value = tpl.emoji || '';
             document.getElementById('tplName').value = tpl.name || '';
-            document.getElementById('tplScoringType').value = tpl.scoringType || 'rounds';
-            document.getElementById('tplNumRounds').value = tpl.numRounds || 5;
-            document.getElementById('tplTargetScore').value = tpl.targetScore || 40;
             document.getElementById('tplMaxPlayers').value = tpl.maxPlayers || '';
             document.getElementById('tplFormError').textContent = '';
             populateTplShelfSelect(tpl.shelfId || '');
-            // Render items
-            document.getElementById('tplItemsList').innerHTML = '';
-            const items = tpl.items || tpl.roundItems || [];
-            items.forEach(item => addTplItem(item.name, item.negative));
-            onTplScoringChange();
             document.getElementById('templateFormModal').style.display = 'flex';
         }
 
         function closeTemplateFormModal(e) {
             if (e && e.target !== document.getElementById('templateFormModal')) return;
             document.getElementById('templateFormModal').style.display = 'none';
+        }
+
+        function openTemplateScoringEdit() {
+            const name = document.getElementById('tplName').value.trim();
+            if (!name) {
+                document.getElementById('tplFormError').textContent = 'El nombre es obligatorio.';
+                return;
+            }
+            const shelfId = document.getElementById('tplShelf')?.value || null;
+            const maxP = parseInt(document.getElementById('tplMaxPlayers').value);
+            const templates = getCustomTemplates();
+            const currentTpl = _editingTemplateIndex !== null ? templates[_editingTemplateIndex] : null;
+
+            _pendingTemplateEdit = {
+                index: _editingTemplateIndex,
+                id: currentTpl ? currentTpl.id : Date.now(),
+                name,
+                emoji: document.getElementById('tplEmoji').value.trim() || '🎲',
+                shelfId: shelfId || null,
+                maxPlayers: maxP >= 2 ? maxP : null,
+            };
+            _editingTemplateScoringMode = true;
+
+            const tplToLoad = currentTpl || _pendingHistoryTpl;
+            if (tplToLoad) loadScoringSetupFromTemplate(tplToLoad);
+
+            document.getElementById('confirmScoringBtn').textContent = 'Guardar';
+            document.getElementById('templateFormModal').style.display = 'none';
+            document.getElementById('btnVolverTimer').style.display = 'none';
+            const scoringEl = document.getElementById('scoringSetupScreen');
+            scoringEl.classList.add('sheet-mode');
+            scoringEl.style.display = 'flex';
+        }
+
+        function loadScoringSetupFromTemplate(tpl) {
+            const type = tpl.scoringType || 'rounds';
+            const radioIds = { rounds: 'roundsRadio', items: 'itemsRadio',
+                               rounds_with_items: 'roundsWithItemsRadio', target_score: 'targetScoreRadio' };
+            document.getElementById(radioIds[type]).checked = true;
+            document.querySelectorAll('.scoring-type-card').forEach(btn => {
+                const m = btn.getAttribute('onclick')?.match(/selectScoringType\('([^']+)'\)/);
+                btn.classList.toggle('active', !!(m && m[1] === type));
+            });
+            document.getElementById('roundsConfig').style.display          = type === 'rounds'            ? 'block' : 'none';
+            document.getElementById('itemsConfig').style.display           = type === 'items'             ? 'block' : 'none';
+            document.getElementById('roundsWithItemsConfig').style.display = type === 'rounds_with_items' ? 'block' : 'none';
+            document.getElementById('targetScoreConfig').style.display     = type === 'target_score'      ? 'block' : 'none';
+
+            const nr = tpl.numRounds || 3;
+            document.getElementById('numRounds').value = nr;
+            document.getElementById('numRoundsDisplay').textContent = nr;
+            document.getElementById('numRoundsWithItems').value = nr;
+            document.getElementById('numRoundsWithItemsDisplay').textContent = nr;
+            document.getElementById('targetScore').value = tpl.targetScore || 40;
+
+            const itemsContainer = document.getElementById('itemsContainer');
+            itemsContainer.innerHTML = '';
+            (tpl.items || []).forEach(it => {
+                addItemInput();
+                const names = itemsContainer.querySelectorAll('.item-name');
+                const negs  = itemsContainer.querySelectorAll('.item-negative');
+                names[names.length - 1].value = it.name || '';
+                negs[negs.length - 1].checked = !!it.negative;
+            });
+            if ((tpl.items || []).length === 0) addItemInput();
+
+            const roundItemsContainer = document.getElementById('roundItemsContainer');
+            roundItemsContainer.innerHTML = '';
+            (tpl.roundItems || []).forEach(it => {
+                addRoundItemInput();
+                const names = roundItemsContainer.querySelectorAll('.round-item-name');
+                const negs  = roundItemsContainer.querySelectorAll('.round-item-negative');
+                names[names.length - 1].value = it.name || '';
+                negs[negs.length - 1].checked = !!it.negative;
+            });
+            if ((tpl.roundItems || []).length === 0) addRoundItemInput();
+        }
+
+        function saveTemplateScoringEdit() {
+            const pt = _pendingTemplateEdit;
+            const type = document.querySelector('input[name="scoringType"]:checked').value;
+            const numRoundsId = type === 'rounds_with_items' ? 'numRoundsWithItems' : 'numRounds';
+            const tpl = {
+                id: pt.id,
+                name: pt.name,
+                emoji: pt.emoji,
+                shelfId: pt.shelfId,
+                scoringType: type,
+                numRounds: parseInt(document.getElementById(numRoundsId).value) || 3,
+                targetScore: parseInt(document.getElementById('targetScore').value) || 40,
+                roundScoringMode: 'all_at_end',
+                items: type === 'items' ?
+                    Array.from(document.querySelectorAll('.item-name'))
+                        .map((inp, i) => ({ name: inp.value.trim(), negative: document.querySelectorAll('.item-negative')[i].checked }))
+                        .filter(it => it.name) : [],
+                roundItems: type === 'rounds_with_items' ?
+                    Array.from(document.querySelectorAll('.round-item-name'))
+                        .map((inp, i) => ({ name: inp.value.trim(), negative: document.querySelectorAll('.round-item-negative')[i].checked }))
+                        .filter(it => it.name) : [],
+            };
+            if (pt.maxPlayers) tpl.maxPlayers = pt.maxPlayers;
+
+            const list = getCustomTemplates();
+            if (pt.index !== null) {
+                const oldEmoji = list[pt.index].emoji;
+                list[pt.index] = tpl;
+                if (tpl.emoji !== oldEmoji) {
+                    const nameNorm = tpl.name.trim().toLowerCase();
+                    const history = getHistory();
+                    let changed = false;
+                    history.forEach(e => { if (e.gameName.trim().toLowerCase() === nameNorm) { e.emoji = tpl.emoji; changed = true; } });
+                    if (changed) {
+                        saveHistory(history);
+                        if (window._fbSaveEntry) {
+                            history.filter(e => e.gameName.trim().toLowerCase() === nameNorm)
+                                   .forEach(e => window._fbSaveEntry(e));
+                        }
+                    }
+                }
+            } else {
+                list.push(tpl);
+            }
+            saveCustomTemplates(list);
+
+            // Si era plantilla nueva, registrar el índice recién creado
+            if (pt.index === null) {
+                _editingTemplateIndex = getCustomTemplates().length - 1;
+            }
+            _tplScoringConfigured = true;
+            _pendingHistoryTpl = null;
+
+            _editingTemplateScoringMode = false;
+            _pendingTemplateEdit = null;
+            document.getElementById('confirmScoringBtn').textContent = 'Continuar';
+
+            // Cerrar el sheet de configuración de puntuación
+            const scoringEl = document.getElementById('scoringSetupScreen');
+            scoringEl.classList.remove('sheet-mode');
+            scoringEl.style.display = '';
+
+            // Volver al modal de edición
+            document.getElementById('templateFormModal').style.display = 'flex';
         }
 
         function onTplScoringChange() {
@@ -3856,23 +4017,23 @@
                 document.getElementById('tplFormError').textContent = 'El nombre es obligatorio.';
                 return;
             }
-            const scoringType = document.getElementById('tplScoringType').value;
-            const items = Array.from(document.querySelectorAll('.tpl-item-name')).map((inp, i) => ({
-                name: inp.value.trim(),
-                negative: document.querySelectorAll('.tpl-item-negative')[i].checked
-            })).filter(it => it.name);
-
+            if (!_tplScoringConfigured) {
+                document.getElementById('tplFormError').textContent = 'Configura primero la plantilla de puntuación.';
+                return;
+            }
             const shelfId = document.getElementById('tplShelf')?.value || null;
+            const existingTpl = _editingTemplateIndex !== null ? getCustomTemplates()[_editingTemplateIndex] : null;
             const tpl = {
-                id: _editingTemplateIndex !== null ? getCustomTemplates()[_editingTemplateIndex].id : Date.now(),
+                id: existingTpl ? existingTpl.id : Date.now(),
                 name,
                 emoji: document.getElementById('tplEmoji').value.trim() || '🎲',
-                scoringType,
-                numRounds: parseInt(document.getElementById('tplNumRounds').value) || 5,
-                targetScore: parseInt(document.getElementById('tplTargetScore').value) || 40,
-                roundScoringMode: 'all_at_end',
-                items: scoringType === 'items' ? items : [],
-                roundItems: scoringType === 'rounds_with_items' ? items : [],
+                // Preservar configuración de puntuación existente (o defaults si es nueva)
+                scoringType: existingTpl?.scoringType || 'rounds',
+                numRounds: existingTpl?.numRounds || 5,
+                targetScore: existingTpl?.targetScore || 40,
+                roundScoringMode: existingTpl?.roundScoringMode || 'all_at_end',
+                items: existingTpl?.items || [],
+                roundItems: existingTpl?.roundItems || [],
                 shelfId: shelfId || null,
             };
             const maxP = parseInt(document.getElementById('tplMaxPlayers').value);
@@ -3908,8 +4069,20 @@
             }
 
             document.getElementById('templateFormModal').style.display = 'none';
-            renderCustomTemplatesList();
             renderLibraryShelves();
+            showGameLibraryModalForTpl(tpl);
+        }
+
+        function showGameLibraryModalForTpl(tpl) {
+            const norm = tpl.name.trim().toLowerCase();
+            const entry = (_libraryIndex || []).find(e => e.norm === norm);
+            _glModalSelectedIndex = entry ? entry.index : null;
+            _glModalHistGameName = null;
+            _glModalHistGameEmoji = null;
+            document.getElementById('glModalEmoji').textContent = tpl.emoji || '🎲';
+            document.getElementById('glModalTitle').textContent = tpl.name;
+            document.getElementById('glModalEditBtn').style.display = '';
+            document.getElementById('gameLibraryModal').style.display = 'flex';
         }
 
         // ── Perfil de jugador (UI) ────────────────────────────────────
