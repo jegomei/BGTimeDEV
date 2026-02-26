@@ -465,6 +465,26 @@
             cursor: not-allowed;
         }
 
+        .drag-handle {
+            opacity: 0.55;
+            padding: 8px 10px 8px 0;
+            cursor: grab;
+            touch-action: none;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .drag-handle:active { cursor: grabbing; opacity: 0.9; }
+        .order-item.order-dragging { opacity: 0.25; }
+        .order-drag-ghost {
+            position: fixed !important;
+            z-index: 10001;
+            pointer-events: none;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.4) !important;
+            transform: scale(1.03);
+            margin: 0 !important;
+        }
+
 
         /* -- 3e. Modal de confirmacion (reset, etc.) -- */
         /* ── Modal confirmación reset ── */
@@ -3342,6 +3362,20 @@
         .tpl-edit-scoring-btn:active {
             background: var(--border-color);
         }
+        .tpl-delete-btn {
+            width: 100%;
+            margin-bottom: 10px;
+            background: transparent;
+            color: #e74c3c;
+            border: 1.5px solid rgba(231,76,60,0.35);
+            border-radius: 10px;
+            min-height: unset;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .tpl-delete-btn:active { background: rgba(231,76,60,0.08); }
         .tpl-form-group label {
             font-size: 13px;
             font-weight: 600;
