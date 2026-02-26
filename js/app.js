@@ -255,8 +255,11 @@
         }
 
         function setOverlayBtnState(screenId) {
-            document.getElementById('settingsBtn').classList.toggle('btn-on', screenId === 'settingsScreen');
+            const gameScreens = ['scoringSetupScreen', 'playersScreen', 'orderPlayersScreen', 'timerScreen', 'scoringScreen'];
+            document.getElementById('libraryBtn').classList.toggle('btn-on', screenId === 'setupScreen');
             document.getElementById('statsBtn').classList.toggle('btn-on', screenId === 'statsScreen');
+            document.getElementById('settingsBtn').classList.toggle('btn-on', screenId === 'settingsScreen');
+            document.getElementById('activeGameBtn').classList.toggle('btn-on', gameScreens.includes(screenId));
         }
 
         function showScreen(screenId, forceDirection) {
