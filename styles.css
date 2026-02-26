@@ -466,9 +466,10 @@
         }
 
         .order-up-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            min-height: unset;
+            border-radius: 6px;
             border: 1px solid rgba(255,255,255,0.35);
             background: rgba(255,255,255,0.18);
             color: #fff;
@@ -478,6 +479,7 @@
             cursor: pointer;
             flex-shrink: 0;
             padding: 0;
+            margin: 0;
             transition: background 0.15s;
         }
         .order-up-btn:active { background: rgba(255,255,255,0.35); }
