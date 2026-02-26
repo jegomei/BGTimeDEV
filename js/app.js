@@ -3089,6 +3089,8 @@
         function closeGameLibraryModal(e) {
             if (e && e.target !== document.getElementById('gameLibraryModal')) return;
             document.getElementById('gameLibraryModal').style.display = 'none';
+            document.getElementById('glModalNormalActions').style.display = '';
+            document.getElementById('glModalWarningActions').style.display = 'none';
             _glModalSelectedIndex = null;
             _glModalHistGameName = null;
             _glModalHistGameEmoji = null;
@@ -3096,6 +3098,16 @@
 
         function glModalPlay() {
             if (_glModalSelectedIndex === null) return;
+            if (_gameInProgress) {
+                // Hay partida en curso: mostrar aviso inline en la tarjeta
+                document.getElementById('glModalNormalActions').style.display = 'none';
+                document.getElementById('glModalWarningActions').style.display = '';
+                return;
+            }
+            _glModalPlayExecute();
+        }
+
+        function _glModalPlayExecute() {
             if (_glModalSelectedIndex === -1) {
                 // Juego sin template
                 closeGameLibraryModal();
@@ -3109,6 +3121,16 @@
             document.getElementById('gameNameError').textContent = '';
             closeGameLibraryModal();
             goToPlayersScreen();
+        }
+
+        function closeNewGameModal() {
+            document.getElementById('glModalNormalActions').style.display = '';
+            document.getElementById('glModalWarningActions').style.display = 'none';
+        }
+
+        function confirmNewGame() {
+            doResetGame();
+            _glModalPlayExecute();
         }
 
         function glModalEdit() {

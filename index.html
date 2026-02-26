@@ -784,9 +784,16 @@
             </button>
             <div class="game-library-sheet-emoji" id="glModalEmoji">🎲</div>
             <div class="game-library-sheet-title" id="glModalTitle">Juego</div>
-            <div class="game-library-sheet-actions">
+            <div id="glModalNormalActions" class="game-library-sheet-actions">
                 <button id="glModalEditBtn" class="secondary" onclick="glModalEdit()" style="display:none;">Editar</button>
                 <button onclick="glModalPlay()">¡A jugar!</button>
+            </div>
+            <div id="glModalWarningActions" style="display:none;">
+                <p class="gl-modal-warning-text">La partida en curso se terminará sin guardar.</p>
+                <div class="game-library-sheet-actions">
+                    <button class="secondary" onclick="closeNewGameModal()">Cancelar</button>
+                    <button onclick="confirmNewGame()">Nueva partida</button>
+                </div>
             </div>
         </div>
     </div>
