@@ -19,8 +19,7 @@ BGTimeDEV/
 ├── favicon.svg
 └── js/
     ├── firebase.js     # Módulo ES (type="module"). Firebase Auth + Firestore.
-    ├── app.js          # Lógica principal de la app (~4900 líneas). Script normal.
-    └── games.js        # Plantillas de juegos de mesa (GAME_TEMPLATES). Sin lógica.
+    └── app.js          # Lógica principal de la app (~5100 líneas). Script normal.
 ```
 
 `js/firebase.js` se carga como `<script type="module">` y expone todo mediante
@@ -53,7 +52,7 @@ muestran/ocultan con JS. Las principales son:
 
 ### Tipos de puntuación (`scoringType`)
 
-Definidos en `js/games.js` para las plantillas, y configurables por el usuario:
+Configurables por el usuario al crear un juego:
 
 | Tipo | Descripción |
 |------|-------------|
@@ -185,20 +184,7 @@ El listener `_fbListenHistory` detecta estos documentos nuevos en tiempo real.
 
 ## Añadir un juego a la biblioteca
 
-Editar `js/games.js` y añadir una entrada al array `GAME_TEMPLATES`:
-
-```js
-{
-  name: "Nombre del juego",
-  emoji: "🎲",
-  maxPlayers: 4,           // opcional
-  scoringType: "items",    // 'rounds' | 'items' | 'rounds_with_items' | 'target_score'
-  items: [
-    { name: "Ciudades", negative: false },
-    { name: "Deudas",   negative: true  }
-  ]
-}
-```
+Los juegos solo se añaden a través de la interfaz ("Añadir juego" en la biblioteca) o recibiendo una partida compartida por otro usuario. No hay plantillas predefinidas en el código (`games.js` fue eliminado).
 
 ---
 

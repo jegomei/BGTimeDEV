@@ -180,7 +180,7 @@
             // Aplicar plantilla si hay una seleccionada
             const templateSelect = document.getElementById('templateSelect');
             const templateIndex = templateSelect.value;
-            const allTemplates = window._allTemplates || (typeof GAME_TEMPLATES !== 'undefined' ? GAME_TEMPLATES : []);
+            const allTemplates = window._allTemplates || [];
             const hasTemplate = templateIndex !== '' && allTemplates[parseInt(templateIndex)] != null;
             if (hasTemplate) {
                 applyTemplate(allTemplates[parseInt(templateIndex)]);
@@ -396,7 +396,7 @@
 
         function getActiveMaxPlayers() {
             const select = document.getElementById('templateSelect');
-            const allTpl = window._allTemplates || (typeof GAME_TEMPLATES !== 'undefined' ? GAME_TEMPLATES : []);
+            const allTpl = window._allTemplates || [];
             if (select.value === '' || !allTpl[parseInt(select.value)]) return null;
             return allTpl[parseInt(select.value)].maxPlayers || null;
         }
@@ -531,7 +531,7 @@
             // Verificar si hay límite de jugadores alcanzado
             const templateSelect = document.getElementById('templateSelect');
             const templateIndex = templateSelect ? templateSelect.value : '';
-            const allTemplates = window._allTemplates || (typeof GAME_TEMPLATES !== 'undefined' ? GAME_TEMPLATES : []);
+            const allTemplates = window._allTemplates || [];
             const template = (templateIndex !== '' && allTemplates[parseInt(templateIndex)]) ? allTemplates[parseInt(templateIndex)] : null;
             const maxPlayers = template && template.maxPlayers ? template.maxPlayers : Infinity;
             const limitReached = players.length >= maxPlayers;
@@ -2151,8 +2151,8 @@
 
             // Emoji e nombre del juego
             const templateIndex = document.getElementById('templateSelect').value;
-            const tplEmoji = (templateIndex !== '' && typeof GAME_TEMPLATES !== 'undefined')
-                ? ((window._allTemplates || GAME_TEMPLATES)[parseInt(templateIndex)].emoji || '🎲')
+            const tplEmoji = (templateIndex !== '' && window._allTemplates?.[parseInt(templateIndex)])
+                ? (window._allTemplates[parseInt(templateIndex)].emoji || '🎲')
                 : '🎲';
 
             let shareText = `${tplEmoji} ${gameData.gameName}\n`;
@@ -2346,8 +2346,8 @@
         function saveToHistory(results) {
             const history = getHistory();
             const templateIndex = document.getElementById('templateSelect').value;
-            const tplEmoji = (templateIndex !== '' && typeof GAME_TEMPLATES !== 'undefined')
-                ? ((window._allTemplates || GAME_TEMPLATES)[parseInt(templateIndex)].emoji || '🎲')
+            const tplEmoji = (templateIndex !== '' && window._allTemplates?.[parseInt(templateIndex)])
+                ? (window._allTemplates[parseInt(templateIndex)].emoji || '🎲')
                 : '🎲';
 
             const entry = {
@@ -2865,7 +2865,7 @@
             // Migrar datos de favoritos al nuevo sistema de estanterías
             migrateShelvesData();
 
-            // Poblar la Biblioteca con las plantillas de games.js + plantillas propias
+            // Poblar la Biblioteca con las plantillas personalizadas del usuario
             rebuildLibrary();
             renderLibraryShelves();
 
@@ -2926,7 +2926,7 @@
         }
 
         function buildLibraryIndex() {
-            const source = window._allTemplates || (typeof GAME_TEMPLATES !== 'undefined' ? GAME_TEMPLATES : []);
+            const source = window._allTemplates || [];
             const seen = new Map(); // norm → entry, custom gana sobre predefinida
             source.forEach((tpl, i) => {
                 const entry = {
@@ -3320,13 +3320,9 @@
             if (changed) saveCustomTemplates(list);
         }
 
-        // Mezcla GAME_TEMPLATES con las plantillas personalizadas y reconstruye el índice
+        // Reconstruye el índice de la biblioteca a partir de las plantillas personalizadas
         function rebuildLibrary() {
-            const custom = getCustomTemplates().map(t => ({ ...t, _custom: true }));
-            window._allTemplates = [
-                ...(typeof GAME_TEMPLATES !== 'undefined' ? GAME_TEMPLATES : []),
-                ...custom
-            ];
+            window._allTemplates = getCustomTemplates().map(t => ({ ...t, _custom: true }));
             buildLibraryIndex();
         }
 
@@ -3952,11 +3948,14 @@
                     const nameNorm = tpl.name.trim().toLowerCase();
                     const history = getHistory();
                     let changed = false;
-                    history.forEach(e => { if (e.gameName.trim().toLowerCase() === nameNorm) { e.emoji = tpl.emoji; changed = true; } });
+                    history.forEach(e => {
+                        if (e.sharedBy) return;
+                        if (e.gameName.trim().toLowerCase() === nameNorm) { e.emoji = tpl.emoji; changed = true; }
+                    });
                     if (changed) {
                         saveHistory(history);
                         if (window._fbSaveEntry) {
-                            history.filter(e => e.gameName.trim().toLowerCase() === nameNorm)
+                            history.filter(e => !e.sharedBy && e.gameName.trim().toLowerCase() === nameNorm)
                                    .forEach(e => window._fbSaveEntry(e));
                         }
                     }
@@ -4040,7 +4039,9 @@
             if (maxP >= 2) tpl.maxPlayers = maxP;
 
             const list = getCustomTemplates();
-            const oldEmoji = _editingTemplateIndex !== null ? (list[_editingTemplateIndex].emoji || '🎲') : null;
+            const existingInList = _editingTemplateIndex !== null ? list[_editingTemplateIndex] : null;
+            const oldName = existingInList ? existingInList.name : tpl.name;
+            const oldEmoji = existingInList ? (existingInList.emoji || '🎲') : null;
             if (_editingTemplateIndex !== null) {
                 list[_editingTemplateIndex] = tpl;
             } else {
@@ -4048,22 +4049,28 @@
             }
             saveCustomTemplates(list);
 
-            // ── Si cambió el emoji al editar, propagarlo al historial ──
-            if (_editingTemplateIndex !== null && tpl.emoji !== oldEmoji) {
-                const nameNorm = tpl.name.trim().toLowerCase();
-                const history = getHistory();
-                let changed = false;
-                history.forEach(e => {
-                    if (e.gameName.trim().toLowerCase() === nameNorm) {
-                        e.emoji = tpl.emoji;
-                        changed = true;
-                    }
-                });
-                if (changed) {
-                    saveHistory(history);
-                    if (window._fbSaveEntry) {
-                        history.filter(e => e.gameName.trim().toLowerCase() === nameNorm)
-                               .forEach(e => window._fbSaveEntry(e));
+            // ── Propagar nombre y/o emoji al historial (solo entradas propias) ──
+            if (_editingTemplateIndex !== null) {
+                const nameChanged = normStr(tpl.name) !== normStr(oldName);
+                const emojiChanged = tpl.emoji !== oldEmoji;
+                if (nameChanged || emojiChanged) {
+                    const oldNameNorm = normStr(oldName);
+                    const history = getHistory();
+                    let changed = false;
+                    history.forEach(e => {
+                        if (e.sharedBy) return;
+                        if (normStr(e.gameName) === oldNameNorm) {
+                            if (nameChanged) e.gameName = tpl.name;
+                            if (emojiChanged) e.emoji = tpl.emoji;
+                            changed = true;
+                        }
+                    });
+                    if (changed) {
+                        saveHistory(history);
+                        if (window._fbSaveEntry) {
+                            history.filter(e => !e.sharedBy && normStr(e.gameName) === normStr(tpl.name))
+                                   .forEach(e => window._fbSaveEntry(e));
+                        }
                     }
                 }
             }
