@@ -82,11 +82,11 @@ Dos modos:
 
 ### Cómo funciona la caché en memoria (cuando logueado)
 
-1. **Login** → se pre-carga la caché desde localStorage (UI inmediata)
-2. **`_fbSyncHistory` / `_fbSyncSettings`** → sobrescriben la caché con datos de Firebase
+1. **Login** → `loadHistoryIntoCache` carga `matches/` desde Firestore (IndexedDB offline si no hay red), `_fbSyncSettings` carga ajustes
+2. **`_fbListenHistory`** → listener `onSnapshot` en tiempo real sobre `matches/` que actualiza la caché automáticamente
 3. **Lecturas** → `getHistory()`, `getFrecuentPlayers()`, `getCustomTemplates()` leen la caché
 4. **Escrituras** → actualizan la caché al instante + llaman a Firebase async
-5. **Logout** → la caché se persiste en localStorage y se limpia (`null`)
+5. **Logout** → las cachés se limpian a `null`
 
 ### Helpers de acceso a datos (en `app.js`)
 
@@ -136,7 +136,7 @@ saveCustomTemplates(list) // guarda plantillas personalizadas
 
 | Ruta | Contenido |
 |------|-----------|
-| `users/{uid}/history/{entryId}` | Partidas del usuario (máx. 100 en Firestore) |
+| `matches/{matchId}` | Partidas (colección global). Campos `participantUids` (array de UIDs), `creatorUid`, `deletedBy` (array de UIDs que la han borrado de su vista) |
 | `users/{uid}/settings/data` | Jugadores habituales y plantillas personalizadas |
 | `users/{uid}/profile/data` | Perfil: nickname, colores, código de jugador |
 | `playerCodes/{code}` | Índice público de códigos → uid (para búsqueda de amigos) |
@@ -148,9 +148,9 @@ saveCustomTemplates(list) // guarda plantillas personalizadas
 window._fbIsLoggedIn()          // boolean: ¿está logueado?
 window._fbSignIn()              // login con Google
 window._fbSignOut()             // cerrar sesión
-window._fbSaveEntry(entry)      // sube una partida a Firestore
-window._fbDeleteEntry(entryId)  // borrado lógico de una partida
-window._fbSyncHistory()         // descarga y fusiona historial desde Firestore
+window._fbSaveEntry(entry)      // sube una partida a matches/ (con participantUids y creatorUid)
+window._fbDeleteEntry(entryId)  // borrado lógico: añade uid a deletedBy en matches/
+window._fbListenHistory()       // inicia listener onSnapshot sobre matches/ (tiempo real)
 window._fbSaveSettings()        // sube jugadores y plantillas a Firestore
 window._fbSyncSettings()        // descarga y fusiona ajustes desde Firestore
 window._fbLoadProfile()         // carga perfil del usuario
@@ -166,10 +166,7 @@ Firestore no admite arrays anidados. Los campos `roundScores`, `itemScores` y
 al leer (funciones `serializeForFirestore` / `deserializeFromFirestore` en `firebase.js`).
 
 ### Compartir partidas entre amigos
-Cuando se guarda una partida, `_fbShareEntryWithFriends` escribe el documento
-en el historial de cada amigo que aparezca como jugador (comparando nickname con
-nombres de jugadores en `results`). El documento compartido incluye el campo `sharedBy`.
-El listener `_fbListenHistory` detecta estos documentos nuevos en tiempo real.
+Cuando se guarda una partida, `_fbSaveEntry` construye `participantUids` consultando las `connections/` del usuario y comparando los nicknames de los amigos con los nombres de `results`. Un único documento en `matches/` es visible para todos los participantes. El listener `_fbListenHistory` detecta estos documentos nuevos en tiempo real y muestra un toast si `creatorUid` no es el usuario actual.
 
 ---
 
@@ -209,6 +206,16 @@ Los juegos solo se añaden a través de la interfaz ("Añadir juego" en la bibli
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    match /matches/{matchId} {
+      allow read: if request.auth != null
+        && request.auth.uid in resource.data.participantUids;
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.creatorUid
+        && request.auth.uid in request.resource.data.participantUids;
+      allow update: if request.auth != null
+        && request.auth.uid in resource.data.participantUids;
+    }
 
     match /users/{uid}/history/{entryId} {
       allow read, write: if request.auth.uid == uid;
