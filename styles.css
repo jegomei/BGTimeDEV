@@ -1049,7 +1049,7 @@
         }
 
         /* -- 4g. Modal biblioteca (bottom sheet) -- */
-        #gameLibraryModal, #addGameSheet {
+        #gameLibraryModal, #addGameSheet, #addPlayerModal {
             display: none;
             position: fixed;
             inset: 0;
@@ -1057,6 +1057,61 @@
             background: rgba(0,0,0,0.55);
             align-items: flex-end;
             justify-content: center;
+        }
+        .add-player-sheet {
+            background: var(--container-bg);
+            border-radius: 20px 20px 0 0;
+            width: 100%;
+            max-width: 560px;
+            padding: 28px 24px 44px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            position: relative;
+            animation: sheetUp 0.25s cubic-bezier(0.34,1.2,0.64,1);
+            max-height: 75vh;
+            overflow-y: auto;
+        }
+        .add-player-sheet-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-primary);
+            text-align: center;
+            margin: 4px 0 0 0;
+        }
+        .add-player-input-row {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+        }
+        .add-player-input-row input {
+            flex: 1;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 2px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 16px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-width: 0;
+        }
+        .add-player-input-row button {
+            padding: 0 18px;
+            border-radius: 10px;
+            background: var(--primary-color);
+            color: #fff;
+            font-weight: 700;
+            font-size: 15px;
+            border: none;
+            cursor: pointer;
+            white-space: nowrap;
+            min-height: unset;
+            height: 48px;
+        }
+        .add-player-modal-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
         }
         .game-library-sheet {
             background: var(--container-bg);
