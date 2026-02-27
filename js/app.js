@@ -2408,14 +2408,13 @@
             container.innerHTML = '';
 
             if (history.length === 0) {
-                if (_historyLoadPending) {
+                if (window._fbIsLoggedIn?.() && window._memHistory === null) {
                     container.innerHTML = '<div class="history-empty">Cargando partidas...</div>';
                 } else {
                     container.innerHTML = '<div class="history-empty">Aún no hay partidas guardadas.<br>¡Juega una partida para verla aquí!</div>';
                 }
                 return;
             }
-            _historyLoadPending = false;
 
             const LIMIT = 5;
             const visible = showAll ? history : history.slice(0, LIMIT);
@@ -4234,9 +4233,7 @@
             const activeScreen = document.querySelector('.screen.active');
             if (activeScreen && activeScreen.id === 'statsScreen') return;
             if (activeScreen) previousScreenId = activeScreen.id;
-            if (window._fbIsLoggedIn?.() && window._fbSyncHistory) _historyLoadPending = true;
             renderHistoryList();
-            if (window._fbSyncHistory) window._fbSyncHistory();
             showScreen('statsScreen', 1);
         }
 

@@ -3,7 +3,7 @@
             from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
                  collection, doc, setDoc, getDoc, getDocs, deleteDoc,
-                 query, orderBy, limit, onSnapshot, where, arrayUnion, updateDoc }
+                 query, onSnapshot, where, arrayUnion, updateDoc }
             from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -55,18 +55,26 @@
         // Carga el historial desde la colección global matches/ (o su caché IndexedDB si está offline)
         async function loadHistoryIntoCache(uid) {
             try {
+                // Sin orderBy en el servidor → no requiere índice compuesto; se ordena en cliente
                 const q = query(
                     collection(db, 'matches'),
-                    where('participantUids', 'array-contains', uid),
-                    orderBy('id', 'desc'),
-                    limit(100)
+                    where('participantUids', 'array-contains', uid)
                 );
                 const snap = await getDocs(q);
-                window._memHistory = snap.docs
+                const firestoreEntries = snap.docs
                     .map(d => d.data())
                     .filter(e => !(e.deletedBy || []).includes(uid))
-                    .map(e => deserializeFromFirestore(e))
+                    .map(e => deserializeFromFirestore(e));
+
+                // Preservar entradas locales no guardadas aún en Firestore (evita race condition)
+                const existing = window._memHistory || [];
+                const firestoreIds = new Set(firestoreEntries.map(e => String(e.id)));
+                const localOnly = existing.filter(e => !firestoreIds.has(String(e.id)));
+
+                window._memHistory = [...firestoreEntries, ...localOnly]
+                    .sort((a, b) => b.id - a.id)
                     .slice(0, 50);
+
                 if (typeof renderHistoryList === 'function') renderHistoryList();
             } catch (e) {
                 console.warn('Error cargando historial:', e);
@@ -483,13 +491,12 @@
             if (!user) return;
             if (window._historyUnsubscribe) window._historyUnsubscribe();
 
-            // Solo escuchamos partidas recientes (últimas 48h) para no sobrecargar
+            // Escuchamos todas las partidas del usuario; sin orderBy ni filtros extra
+            // para no requerir índice compuesto. Se filtra el toast por las últimas 48h.
             const since = Date.now() - 48 * 60 * 60 * 1000;
             const q = query(
                 collection(db, 'matches'),
-                where('participantUids', 'array-contains', user.uid),
-                where('id', '>=', since),
-                orderBy('id', 'desc')
+                where('participantUids', 'array-contains', user.uid)
             );
 
             window._historyUnsubscribe = onSnapshot(q, (snap) => {
@@ -522,8 +529,8 @@
                         window._memHistory = [entry, ...local].sort((a, b) => b.id - a.id).slice(0, 50);
                         needsRender = true;
 
-                        // Toast solo si la partida la creó otro usuario
-                        if (data.creatorUid && data.creatorUid !== user.uid) {
+                        // Toast solo si la partida la creó otro usuario y es reciente (últimas 48h)
+                        if (data.creatorUid && data.creatorUid !== user.uid && data.id >= since) {
                             const friend = (window._friends || []).find(f => f.uid === data.creatorUid);
                             const who = friend?.nickname || 'Un amigo';
                             showSyncToast(`🎲 ${who} añadió una partida a tu historial`);
