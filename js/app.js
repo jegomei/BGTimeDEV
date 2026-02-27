@@ -2434,9 +2434,13 @@
 
                 const isLoggedIn = window._fbIsLoggedIn && window._fbIsLoggedIn();
                 const synced = window._syncedIds && window._syncedIds.has(entry.id);
+                
+                /*eliminado por mí, nube roja
                 const syncIcon = (isLoggedIn && !synced)
                     ? `<span style="display:inline-flex;align-items:center;color:#e74c3c;flex-shrink:0;" title="No sincronizado en la nube"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>`
                     : '';
+                */
+
 
                 const sharedBadge = entry.sharedBy
                     ? `<span class="shared-by-badge" style="margin:0"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>${entry.sharedBy.nickname || 'un amigo'}</span>`
