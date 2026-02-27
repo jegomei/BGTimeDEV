@@ -1,7 +1,9 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
             from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, orderBy, limit, onSnapshot, where }
+        import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+                 collection, doc, setDoc, getDoc, getDocs, deleteDoc,
+                 query, orderBy, limit, onSnapshot, where, arrayUnion, updateDoc }
             from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -15,7 +17,9 @@
 
         const app  = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db   = getFirestore(app);
+        const db   = initializeFirestore(app, {
+            localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+        });
         const provider = new GoogleAuthProvider();
 
         // ── Caché en memoria (activa solo cuando el usuario está logueado) ──
@@ -23,10 +27,7 @@
         window._memFrecuent  = null;
         window._memTemplates = null;
 
-        // ── Funciones de sincronización ────────────────────────────
-
-        // IDs que están confirmados en Firestore (para el icono de nube)
-        window._syncedIds = new Set();
+        // ── Funciones de acceso a datos ────────────────────────────
 
         // Firestore no admite arrays anidados. Los serializamos a JSON string antes de guardar.
         const NESTED_ARRAY_FIELDS = ['roundScores', 'itemScores', 'roundItemScores'];
@@ -51,160 +52,74 @@
             return out;
         }
 
-        // Sube una partida a Firestore
+        // Carga el historial desde la colección global matches/ (o su caché IndexedDB si está offline)
+        async function loadHistoryIntoCache(uid) {
+            try {
+                const q = query(
+                    collection(db, 'matches'),
+                    where('participantUids', 'array-contains', uid),
+                    orderBy('id', 'desc'),
+                    limit(100)
+                );
+                const snap = await getDocs(q);
+                window._memHistory = snap.docs
+                    .map(d => d.data())
+                    .filter(e => !(e.deletedBy || []).includes(uid))
+                    .map(e => deserializeFromFirestore(e))
+                    .slice(0, 50);
+                if (typeof renderHistoryList === 'function') renderHistoryList();
+            } catch (e) {
+                console.warn('Error cargando historial:', e);
+                if (window._memHistory === null) window._memHistory = [];
+            }
+        }
+
+        // Sube una partida a la colección global matches/
         window._fbSaveEntry = async (entry) => {
             const user = auth.currentUser;
             if (!user) return;
+
+            // Construir participantUids: el creador siempre está incluido
+            const participantUids = [user.uid];
             try {
-                const ref = doc(db, 'users', user.uid, 'history', String(entry.id));
-                await setDoc(ref, serializeForFirestore(entry));
-                window._syncedIds.add(entry.id);
+                const q = query(collection(db, 'connections'), where('uids', 'array-contains', user.uid));
+                const snap = await getDocs(q);
+                const playerNames = (entry.results || []).map(r => r.player.trim().toLowerCase());
+                for (const d of snap.docs) {
+                    const data = d.data();
+                    const otherUid = data.uids.find(u => u !== user.uid);
+                    const profile  = (data.profiles || {})[otherUid] || {};
+                    const nickname = profile.nickname || '';
+                    if (nickname && playerNames.includes(nickname.trim().toLowerCase())) {
+                        participantUids.push(otherUid);
+                    }
+                }
+            } catch (e) {
+                console.warn('Error resolviendo participantUids:', e);
+            }
+
+            try {
+                const ref = doc(db, 'matches', String(entry.id));
+                await setDoc(ref, serializeForFirestore({
+                    ...entry,
+                    participantUids,
+                    creatorUid: user.uid
+                }));
             } catch (e) {
                 console.warn('Error guardando en Firestore:', e);
             }
-            // Compartir la partida con amigos conectados que participaron en ella
-            try {
-                await window._fbShareEntryWithFriends(entry);
-            } catch (e) {
-                console.warn('Error compartiendo partida con amigos:', e);
-            }
         };
 
-        // Comparte una partida con los amigos conectados que aparecen en ella
-        window._fbShareEntryWithFriends = async (entry) => {
-            const user = auth.currentUser;
-            if (!user || !window._currentProfile) return;
-            // Obtener amigos desde Firestore directamente (puede que _friends no esté cargado aún)
-            const q = query(collection(db, 'connections'), where('uids', 'array-contains', user.uid));
-            const snap = await getDocs(q);
-            const friends = snap.docs.map(d => {
-                const data = d.data();
-                const otherUid = data.uids.find(u => u !== user.uid);
-                const profile = (data.profiles || {})[otherUid] || {};
-                return { uid: otherUid, nickname: profile.nickname || '' };
-            }).filter(f => f.uid && f.nickname);
-
-            if (friends.length === 0) return;
-
-            // Nombres de jugadores en la partida (normalizados)
-            const playerNames = (entry.results || []).map(r => r.player.trim().toLowerCase());
-
-            const myNickname = window._currentProfile.nickname || '';
-            const sharedByInfo = {
-                uid: user.uid,
-                nickname: myNickname
-            };
-
-            for (const friend of friends) {
-                // Solo compartir si el amigo jugó en la partida
-                if (!playerNames.includes(friend.nickname.trim().toLowerCase())) continue;
-                try {
-                    const sharedEntry = {
-                        ...serializeForFirestore(entry),
-                        sharedBy: sharedByInfo,
-                        sharedAt: Date.now()
-                    };
-                    const ref = doc(db, 'users', friend.uid, 'history', String(entry.id));
-                    // Usamos create implícito: la regla solo permite "create", no "update",
-                    // así que si el doc ya existe fallará con permissions y lo ignoramos.
-                    // No hacemos getDoc previo porque no tenemos permiso de lectura en historial ajeno.
-                    await setDoc(ref, sharedEntry);
-                } catch(e) {
-                    // "permissions" puede significar que ya existe (regla solo permite create)
-                    // o un error real — en ambos casos no bloqueamos el flujo
-                    if (e.code !== 'permission-denied') {
-                        console.warn('Error compartiendo con', friend.uid, e);
-                    }
-                }
-            }
-        };
-
-        // Borra una partida de Firestore
+        // Oculta una partida del historial del usuario añadiendo su UID a deletedBy
+        // La partida sigue siendo visible para los demás participantes
         window._fbDeleteEntry = async (entryId) => {
             const user = auth.currentUser;
             if (!user) return;
             try {
-                const ref = doc(db, 'users', user.uid, 'history', String(entryId));
-                await setDoc(ref, { id: entryId, deleted: true }, { merge: true });
-                window._syncedIds.delete(entryId);
+                const ref = doc(db, 'matches', String(entryId));
+                await updateDoc(ref, { deletedBy: arrayUnion(user.uid) });
             } catch (e) {
                 console.warn('Error borrando en Firestore:', e);
-            }
-        };
-
-        // Descarga el historial de Firestore y lo fusiona con el local
-        window._fbSyncHistory = async () => {
-            const user = auth.currentUser;
-            if (!user) return;
-
-            if (window._fbSyncing) return;
-            window._fbSyncing = true;
-
-            try {
-                const col  = collection(db, 'users', user.uid, 'history');
-                const q    = query(col, orderBy('id', 'desc'), limit(100));
-                const snap = await getDocs(q);
-                const allRemote = snap.docs.map(d => d.data());
-
-                // Separar borrados lógicos del resto
-                const deletedIds  = new Set(allRemote.filter(e => e.deleted).map(e => String(e.id)));
-                const remoteAlive = allRemote.filter(e => !e.deleted).map(d => deserializeFromFirestore(d));
-
-                window._syncedIds = new Set(remoteAlive.map(e => e.id));
-
-                const local = window._memHistory || [];
-                const remoteAliveIds = new Set(remoteAlive.map(e => String(e.id)));
-
-                // Partidas locales que no están en Firestore → nuevas, hay que subirlas
-                // (excluir las que están marcadas como borradas en Firestore)
-                const pendientesSubir = local.filter(e =>
-                    !remoteAliveIds.has(String(e.id)) && !deletedIds.has(String(e.id))
-                );
-
-                for (const entry of pendientesSubir) {
-                    try {
-                        const ref = doc(db, 'users', user.uid, 'history', String(entry.id));
-                        await setDoc(ref, serializeForFirestore(entry));
-                        window._syncedIds.add(entry.id);
-                    } catch (uploadErr) {
-                        console.warn('Error subiendo partida', entry.id, uploadErr);
-                    }
-                }
-
-                // Estado final local = vivos en Firestore + nuevos que acabamos de subir
-                // Los deletedIds se excluyen aunque estuvieran en local
-                const localMap = {};
-                local.forEach(e => { localMap[String(e.id)] = e; });
-                remoteAlive.forEach(e => { localMap[String(e.id)] = e; });
-                pendientesSubir.forEach(e => { localMap[String(e.id)] = e; });
-
-                const merged = Object.values(localMap)
-                    .filter(e => !deletedIds.has(String(e.id)))
-                    .sort((a, b) => b.id - a.id)
-                    .slice(0, 50);
-
-                window._memHistory = merged;
-
-                // Persistir en localStorage para que la próxima sesión empiece con datos frescos
-                try { localStorage.setItem('bgtime_history', JSON.stringify(merged)); } catch(e) {}
-
-                // Guardar marca de tiempo y uid del último sync exitoso
-                try {
-                    localStorage.setItem('bgtime_last_sync_ts',  String(Date.now()));
-                    localStorage.setItem('bgtime_last_sync_uid', auth.currentUser?.uid || '');
-                } catch(e) {}
-
-                if (typeof renderHistoryList === 'function') renderHistoryList();
-
-                showSyncToast(pendientesSubir.length > 0
-                    ? `Sincronizado ✓ (+${pendientesSubir.length} nuevas)`
-                    : 'Sincronizado ✓');
-
-            } catch (e) {
-                console.warn('Error sincronizando:', e);
-                showSyncToast('Error de sincronización ⚠️');
-            } finally {
-                window._fbSyncing = false;
             }
         };
 
@@ -253,7 +168,7 @@
                 const settingsSnap = await getDoc(ref);
 
                 if (!settingsSnap.exists()) {
-                    // Primera vez: subir lo que haya en la caché (pre-cargada desde localStorage al login)
+                    // Primera vez: subir lo que haya en la caché en memoria
                     const frecuent  = window._memFrecuent  || [];
                     const templates = window._memTemplates || [];
                     if (frecuent.length > 0 || templates.length > 0) {
@@ -295,12 +210,6 @@
                     .sort((a, b) => a.name.localeCompare(b.name));
                 window._memTemplates = finalTemplates;
 
-                // Persistir en localStorage para que la próxima sesión empiece con datos frescos
-                try {
-                    localStorage.setItem('bgtime_frecuent_players', JSON.stringify(finalFrecuent));
-                    localStorage.setItem('bgtime_custom_templates',  JSON.stringify(finalTemplates));
-                } catch(e) {}
-
                 // Subir estado final a Firestore
                 await setDoc(ref, {
                     frecuentPlayers: finalFrecuent,
@@ -317,7 +226,6 @@
                     if (settingsEl && settingsEl.classList.contains('active')) renderSettingsScreen();
                 }
 
-                showSyncToast('Ajustes sincronizados ✓');
             } catch (e) {
                 console.warn('Error sincronizando ajustes:', e);
             }
@@ -567,45 +475,76 @@
         // Compatibilidad: _fbSaveFriends ya no hace nada (las conexiones se gestionan directamente)
         window._fbSaveFriends = async () => {};
 
-        // Escucha el historial propio en Firestore en tiempo real
-        // Detecta partidas nuevas compartidas por amigos (campo sharedBy presente)
+        // Escucha en tiempo real las partidas recientes donde el usuario es participante
+        // Detecta nuevas partidas de amigos y modificaciones (scores, deletedBy, etc.)
         window._historyUnsubscribe = null;
         window._fbListenHistory = () => {
             const user = auth.currentUser;
             if (!user) return;
             if (window._historyUnsubscribe) window._historyUnsubscribe();
 
-            const col = collection(db, 'users', user.uid, 'history');
             // Solo escuchamos partidas recientes (últimas 48h) para no sobrecargar
             const since = Date.now() - 48 * 60 * 60 * 1000;
-            const q = query(col, where('id', '>=', since), orderBy('id', 'desc'));
+            const q = query(
+                collection(db, 'matches'),
+                where('participantUids', 'array-contains', user.uid),
+                where('id', '>=', since),
+                orderBy('id', 'desc')
+            );
 
             window._historyUnsubscribe = onSnapshot(q, (snap) => {
-                snap.docChanges().forEach(change => {
-                    if (change.type !== 'added') return;
-                    const data = change.doc.data();
-                    if (!data.sharedBy) return; // solo nos interesan las compartidas por amigos
+                let needsRender = false;
 
-                    const entry = deserializeFromFirestore(data);
+                snap.docChanges().forEach(change => {
+                    const data = change.doc.data();
                     const local = window._memHistory || [];
 
-                    // Evitar duplicado
-                    if (local.some(e => String(e.id) === String(entry.id))) return;
-
-                    // Insertar en caché y guardar
-                    const updated = [entry, ...local].sort((a, b) => b.id - a.id).slice(0, 50);
-                    window._memHistory = updated;
-
-                    // Refrescar UI si la pantalla de stats/historial está abierta
-                    if (typeof renderHistoryList === 'function') {
-                        const hs = document.getElementById('statsScreen');
-                        if (hs && hs.classList.contains('active')) renderHistoryList();
+                    // Si el usuario borró esta partida, eliminarla de la caché (evento modified)
+                    if ((data.deletedBy || []).includes(user.uid)) {
+                        if (change.type === 'modified') {
+                            const idx = local.findIndex(e => String(e.id) === String(data.id));
+                            if (idx !== -1) {
+                                const updated = [...local];
+                                updated.splice(idx, 1);
+                                window._memHistory = updated;
+                                needsRender = true;
+                            }
+                        }
+                        return;
                     }
 
-                    // Toast informando de la partida recibida
-                    const who = data.sharedBy.nickname || 'Un amigo';
-                    showSyncToast(`🎲 ${who} añadió una partida a tu historial`);
+                    const entry = deserializeFromFirestore(data);
+
+                    if (change.type === 'added') {
+                        // Evitar duplicado (ej: propia partida ya insertada en caché por saveToHistory)
+                        if (local.some(e => String(e.id) === String(entry.id))) return;
+
+                        window._memHistory = [entry, ...local].sort((a, b) => b.id - a.id).slice(0, 50);
+                        needsRender = true;
+
+                        // Toast solo si la partida la creó otro usuario
+                        if (data.creatorUid && data.creatorUid !== user.uid) {
+                            const friend = (window._friends || []).find(f => f.uid === data.creatorUid);
+                            const who = friend?.nickname || 'Un amigo';
+                            showSyncToast(`🎲 ${who} añadió una partida a tu historial`);
+                        }
+
+                    } else if (change.type === 'modified') {
+                        // Actualizar la entrada existente en caché
+                        const idx = local.findIndex(e => String(e.id) === String(entry.id));
+                        if (idx !== -1) {
+                            const updated = [...local];
+                            updated[idx] = entry;
+                            window._memHistory = updated;
+                            needsRender = true;
+                        }
+                    }
                 });
+
+                if (needsRender && typeof renderHistoryList === 'function') {
+                    const hs = document.getElementById('statsScreen');
+                    if (hs && hs.classList.contains('active')) renderHistoryList();
+                }
             }, (err) => {
                 console.warn('Error escuchando historial:', err);
             });
@@ -624,27 +563,15 @@
 
                 document.getElementById('authUserEmail').textContent = user.email || '';
 
-                // Pre-cargar caché desde localStorage para que la UI no quede vacía mientras sincroniza
-                window._memHistory   = JSON.parse(localStorage.getItem('bgtime_history') || '[]');
-                window._memFrecuent  = JSON.parse(localStorage.getItem('bgtime_frecuent_players') || '[]');
-                window._memTemplates = JSON.parse(localStorage.getItem('bgtime_custom_templates') || '[]');
+                // Inicializar cachés vacías; Firestore las llenará desde IndexedDB o la red
+                window._memHistory   = null;
+                window._memFrecuent  = null;
+                window._memTemplates = null;
 
-                // Comprobar si la última sincronización fue reciente (TTL = 30 min, mismo usuario)
-                const SYNC_TTL    = 30 * 60 * 1000;
-                const lastSyncTs  = parseInt(localStorage.getItem('bgtime_last_sync_ts')  || '0');
-                const lastSyncUid = localStorage.getItem('bgtime_last_sync_uid') || '';
-                const syncIsRecent = lastSyncUid === user.uid && (Date.now() - lastSyncTs) < SYNC_TTL;
-
-                if (syncIsRecent) {
-                    // Los datos en localStorage ya son frescos — reconstruir UI sin descargar Firestore
-                    if (typeof rebuildLibrary === 'function') rebuildLibrary();
-                    if (typeof renderLibraryShelves === 'function') renderLibraryShelves();
-                    showSyncToast('Datos al día ✓');
-                } else {
-                    // Sincronización completa contra Firestore
-                    window._fbSyncHistory();
-                    window._fbSyncSettings();
-                }
+                // Cargar historial (usa caché IndexedDB offline si no hay red)
+                loadHistoryIntoCache(user.uid);
+                // Cargar ajustes (jugadores frecuentes + plantillas)
+                window._fbSyncSettings();
                 window._fbLoadProfile();
                 // Mostrar sección de amigos
                 const friendsSec = document.getElementById('friendsSection');
@@ -660,10 +587,6 @@
                 // Escuchar historial en tiempo real (para recibir partidas compartidas por amigos)
                 if (typeof window._fbListenHistory === 'function') window._fbListenHistory();
             } else {
-                // Persistir caché en localStorage antes de limpiarla (datos disponibles offline)
-                if (window._memHistory   !== null) localStorage.setItem('bgtime_history',           JSON.stringify(window._memHistory));
-                if (window._memFrecuent  !== null) localStorage.setItem('bgtime_frecuent_players',  JSON.stringify(window._memFrecuent));
-                if (window._memTemplates !== null) localStorage.setItem('bgtime_custom_templates',  JSON.stringify(window._memTemplates));
                 window._memHistory   = null;
                 window._memFrecuent  = null;
                 window._memTemplates = null;
