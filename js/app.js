@@ -2865,9 +2865,6 @@
             const installBtn = document.getElementById('installCardBtn');
             if (installBtn) installBtn.addEventListener('click', triggerPwaInstall);
 
-            // Migrar datos de favoritos al nuevo sistema de estanterías
-            migrateShelvesData();
-
             // Poblar la Biblioteca con las plantillas personalizadas del usuario
             rebuildLibrary();
             renderLibraryShelves();
@@ -2952,41 +2949,25 @@
         let _glModalHistGameName = null, _glModalHistGameEmoji = null;
 
         function renderLibraryShelves() {
-            const dynContainer = document.getElementById('libraryDynamicShelves');
-            if (!dynContainer) return;
-            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
-            const templates = getCustomTemplates ? getCustomTemplates() : [];
-            dynContainer.innerHTML = shelves.map(shelf => {
-                const cards = templates
-                    .filter(tpl => tpl.shelfId === shelf.id)
-                    .map(tpl => {
-                        const libEntry = _libraryIndex.find(t => t.norm === normStr(tpl.name));
-                        if (!libEntry) return '';
-                        return `<button class="game-card" onclick="openGameLibraryModal(${libEntry.index})">
-                            <span class="game-card-emoji">${tpl.emoji || '🎲'}</span>
-                            <span class="game-card-name">${tpl.name}</span>
-                        </button>`;
-                    }).join('');
-                if (!cards) return '';
-                return `<div class="library-shelf">
-                    <div class="shelf-label">${shelf.name}</div>
-                    <div class="shelf-scroll">${cards}</div>
-                </div>`;
-            }).join('');
-            renderShelfHistorial();
-        }
+            const container = document.getElementById('libraryGamesList');
+            if (!container) return;
 
-        function renderShelfHistorial() {
-            const section = document.getElementById('shelfHistorial');
-            const container = document.getElementById('shelfHistorialCards');
-            if (!container || !section) return;
             const templates = getCustomTemplates ? getCustomTemplates() : [];
+            const history = getHistory();
 
+            // Calcular frecuencia de cada juego desde el historial
+            const freqMap = {};
+            history.forEach(entry => {
+                const key = normStr(entry.gameName);
+                if (!freqMap[key]) freqMap[key] = { count: 0, name: entry.gameName, emoji: entry.emoji || '🎲' };
+                freqMap[key].count++;
+            });
+
+            // Recopilar juegos únicos (templates tienen prioridad sobre historial puro)
             const seen = new Set();
             const games = [];
 
-            // Solo custom templates SIN estantería asignada
-            templates.filter(t => !t.shelfId).forEach(tpl => {
+            templates.forEach(tpl => {
                 const key = normStr(tpl.name);
                 if (seen.has(key)) return;
                 seen.add(key);
@@ -2994,25 +2975,45 @@
                 games.push({
                     name: tpl.name,
                     emoji: tpl.emoji || '🎲',
-                    libIndex: libEntry ? libEntry.index : null
+                    libIndex: libEntry ? libEntry.index : null,
+                    count: freqMap[key] ? freqMap[key].count : 0
                 });
             });
 
-            if (games.length === 0) {
-                section.style.display = 'none';
-                return;
-            }
-            section.style.display = '';
-            container.innerHTML = games.map(g => g.libIndex !== null
-                ? `<button class="game-card" onclick="openGameLibraryModal(${g.libIndex})">
-                       <span class="game-card-emoji">${g.emoji}</span>
-                       <span class="game-card-name">${g.name}</span>
-                   </button>`
-                : `<button class="game-card" onclick="openHistorialGameModal('${g.name.replace(/'/g, "\\'")}', '${(g.emoji || '🎲').replace(/'/g, "\\'")}')">
-                       <span class="game-card-emoji">${g.emoji}</span>
-                       <span class="game-card-name">${g.name}</span>
-                   </button>`
-            ).join('');
+            // Juegos solo en historial (sin plantilla custom)
+            Object.values(freqMap).forEach(data => {
+                const key = normStr(data.name);
+                if (seen.has(key)) return;
+                seen.add(key);
+                const libEntry = _libraryIndex.find(e => e.norm === key);
+                games.push({
+                    name: data.name,
+                    emoji: data.emoji,
+                    libIndex: libEntry ? libEntry.index : null,
+                    count: data.count
+                });
+            });
+
+            // Ordenar: más frecuentes primero; empate → alfabético
+            games.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'es'));
+
+            // Renderizar: botón añadir siempre primero
+            const addBtn = `<button class="library-game-item library-game-item-add" onclick="openAddGameSheet()">
+                <span class="library-game-item-emoji">＋</span>
+                <span class="library-game-item-name">Añadir juego nuevo</span>
+            </button>`;
+
+            const gameItems = games.map(g => {
+                const onclick = g.libIndex !== null
+                    ? `openGameLibraryModal(${g.libIndex})`
+                    : `openHistorialGameModal('${g.name.replace(/'/g, "\\'")}', '${(g.emoji || '🎲').replace(/'/g, "\\'")}')`;
+                return `<button class="library-game-item" onclick="${onclick}">
+                    <span class="library-game-item-emoji">${g.emoji}</span>
+                    <span class="library-game-item-name">${g.name}</span>
+                </button>`;
+            }).join('');
+
+            container.innerHTML = addBtn + gameItems;
         }
 
         function openGameLibraryModal(libIndex) {
@@ -3123,7 +3124,6 @@
             document.getElementById('tplName').value = '';
             document.getElementById('tplMaxPlayers').value = '';
             document.getElementById('tplFormError').textContent = '';
-            populateTplShelfSelect('');
             document.getElementById('tplDeleteBtn').style.display = 'none';
             document.getElementById('templateFormModal').style.display = 'flex';
             setTimeout(() => document.getElementById('tplName').focus(), 100);
@@ -3178,96 +3178,6 @@
         }
 
         // ── Gestor de estanterías ────────────────────────────────────
-        function openShelvesManager() {
-            renderShelvesManager();
-            document.getElementById('shelvesManagerSheet').style.display = 'flex';
-        }
-
-        function closeShelvesManager(e) {
-            if (e && e.target !== document.getElementById('shelvesManagerSheet')) return;
-            document.getElementById('shelvesManagerSheet').style.display = 'none';
-        }
-
-        function renderShelvesManager() {
-            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
-            const container = document.getElementById('shelvesList');
-            if (!container) return;
-            const svgDel = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-            if (shelves.length === 0) {
-                container.innerHTML = '<p style="color:var(--text-secondary);font-size:14px;text-align:center;padding:12px 0;">No tienes estanterías. Crea una.</p>';
-                return;
-            }
-            container.innerHTML = shelves.map((shelf, idx) => `
-                <div class="shelf-manager-row" data-id="${shelf.id}">
-                    <span class="shelf-manager-name" onclick="renameShelf('${shelf.id}')">${shelf.name}</span>
-                    <div class="shelf-manager-actions">
-                        ${idx === 0 ? '' : `<button class="order-up-btn" onclick="moveShelfUp('${shelf.id}')">${SVG_UP_ARROW}</button>`}
-                        <button class="custom-tpl-btn" onclick="deleteShelf('${shelf.id}')" style="color:#e74c3c;">${svgDel}</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function moveShelfUp(shelfId) {
-            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
-            const idx = shelves.findIndex(s => s.id === shelfId);
-            if (idx <= 0) return;
-            [shelves[idx - 1], shelves[idx]] = [shelves[idx], shelves[idx - 1]];
-            shelves.forEach((s, i) => s.order = i);
-            saveShelves(shelves);
-            renderShelvesManager();
-            renderLibraryShelves();
-        }
-
-        function addShelf() {
-            const name = prompt('Nombre de la nueva estantería:');
-            if (!name || !name.trim()) return;
-            const shelves = getShelves();
-            const newShelf = {
-                id: 'shelf_' + Date.now(),
-                name: name.trim(),
-                order: shelves.length
-            };
-            shelves.push(newShelf);
-            saveShelves(shelves);
-            renderShelvesManager();
-            renderLibraryShelves();
-        }
-
-        function deleteShelf(shelfId) {
-            const shelves = getShelves();
-            const shelf = shelves.find(s => s.id === shelfId);
-            if (!shelf) return;
-            if (!confirm(`¿Eliminar la estantería "${shelf.name}"? Los juegos quedarán en "Sin estantería".`)) return;
-            const updated = shelves.filter(s => s.id !== shelfId);
-            // Renumber order
-            updated.forEach((s, i) => s.order = i);
-            saveShelves(updated);
-            // Unassign templates from this shelf
-            const templates = getCustomTemplates();
-            let changed = false;
-            templates.forEach(tpl => {
-                if (tpl.shelfId === shelfId) {
-                    tpl.shelfId = null;
-                    changed = true;
-                }
-            });
-            if (changed) saveCustomTemplates(templates);
-            renderShelvesManager();
-            renderLibraryShelves();
-        }
-
-        function renameShelf(shelfId) {
-            const shelves = getShelves();
-            const shelf = shelves.find(s => s.id === shelfId);
-            if (!shelf) return;
-            const newName = prompt('Nuevo nombre:', shelf.name);
-            if (!newName || !newName.trim()) return;
-            shelf.name = newName.trim();
-            saveShelves(shelves);
-            renderShelvesManager();
-            renderLibraryShelves();
-        }
 
         // ══════════════════════════════════════════════════════════════
         //  AJUSTES — Jugadores habituales, plantillas propias, backup
@@ -3306,29 +3216,6 @@
             if (window._fbSaveSettings) window._fbSaveSettings();
         }
 
-        // ── Estanterías ─────────────────────────────────────────────────
-        function getShelves() {
-            try {
-                const stored = localStorage.getItem('bgtime_shelves');
-                if (stored) return JSON.parse(stored);
-            } catch(e) {}
-            return [{ id: 'shelf_favoritos', name: 'Favoritos', order: 0 }];
-        }
-        function saveShelves(arr) {
-            try { localStorage.setItem('bgtime_shelves', JSON.stringify(arr)); } catch(e) {}
-        }
-        // Migra templates con favorite:true al nuevo sistema de shelfId
-        function migrateShelvesData() {
-            const list = getCustomTemplates();
-            let changed = false;
-            list.forEach(tpl => {
-                if (tpl.favorite && !tpl.shelfId) {
-                    tpl.shelfId = 'shelf_favoritos';
-                    changed = true;
-                }
-            });
-            if (changed) saveCustomTemplates(list);
-        }
 
         // Reconstruye el índice de la biblioteca a partir de las plantillas personalizadas
         function rebuildLibrary() {
@@ -3742,7 +3629,6 @@
             document.getElementById('tplName').value = entry.gameName;
             document.getElementById('tplMaxPlayers').value = '';
             document.getElementById('tplFormError').textContent = '';
-            populateTplShelfSelect('');
             document.getElementById('tplDeleteBtn').style.display = 'none';
             document.getElementById('templateFormModal').style.display = 'flex';
         }
@@ -3812,13 +3698,6 @@
         let _tplScoringConfigured = false;
         let _pendingHistoryTpl = null;
 
-        function populateTplShelfSelect(selectedId) {
-            const sel = document.getElementById('tplShelf');
-            if (!sel) return;
-            const shelves = getShelves().slice().sort((a, b) => a.order - b.order);
-            sel.innerHTML = '<option value="">— Sin estantería —</option>' +
-                shelves.map(s => `<option value="${s.id}"${s.id === selectedId ? ' selected' : ''}>${s.name}</option>`).join('');
-        }
 
         function openNewTemplateForm() {
             _editingTemplateIndex = null;
@@ -3832,7 +3711,6 @@
             document.getElementById('tplMaxPlayers').value = '';
             document.getElementById('tplItemsList').innerHTML = '';
             document.getElementById('tplFormError').textContent = '';
-            populateTplShelfSelect('');
             onTplScoringChange();
             document.getElementById('templateFormModal').style.display = 'flex';
         }
@@ -3848,7 +3726,6 @@
             document.getElementById('tplName').value = tpl.name || '';
             document.getElementById('tplMaxPlayers').value = tpl.maxPlayers || '';
             document.getElementById('tplFormError').textContent = '';
-            populateTplShelfSelect(tpl.shelfId || '');
             document.getElementById('tplDeleteBtn').style.display = '';
             document.getElementById('templateFormModal').style.display = 'flex';
         }
@@ -3864,7 +3741,6 @@
                 document.getElementById('tplFormError').textContent = 'El nombre es obligatorio.';
                 return;
             }
-            const shelfId = document.getElementById('tplShelf')?.value || null;
             const maxP = parseInt(document.getElementById('tplMaxPlayers').value);
             const templates = getCustomTemplates();
             const currentTpl = _editingTemplateIndex !== null ? templates[_editingTemplateIndex] : null;
@@ -3874,7 +3750,6 @@
                 id: currentTpl ? currentTpl.id : Date.now(),
                 name,
                 emoji: document.getElementById('tplEmoji').value.trim() || '🎲',
-                shelfId: shelfId || null,
                 maxPlayers: maxP >= 2 ? maxP : null,
             };
             _editingTemplateScoringMode = true;
@@ -3942,7 +3817,6 @@
                 id: pt.id,
                 name: pt.name,
                 emoji: pt.emoji,
-                shelfId: pt.shelfId,
                 scoringType: type,
                 numRounds: parseInt(document.getElementById(numRoundsId).value) || 3,
                 targetScore: parseInt(document.getElementById('targetScore').value) || 40,
@@ -4038,7 +3912,6 @@
                 document.getElementById('tplFormError').textContent = 'Configura primero la plantilla de puntuación.';
                 return;
             }
-            const shelfId = document.getElementById('tplShelf')?.value || null;
             const existingTpl = _editingTemplateIndex !== null ? getCustomTemplates()[_editingTemplateIndex] : null;
             const tpl = {
                 id: existingTpl ? existingTpl.id : Date.now(),
@@ -4051,7 +3924,6 @@
                 roundScoringMode: existingTpl?.roundScoringMode || 'all_at_end',
                 items: existingTpl?.items || [],
                 roundItems: existingTpl?.roundItems || [],
-                shelfId: shelfId || null,
             };
             const maxP = parseInt(document.getElementById('tplMaxPlayers').value);
             if (maxP >= 2) tpl.maxPlayers = maxP;
