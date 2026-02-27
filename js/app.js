@@ -2454,9 +2454,7 @@
                         <div class="stats-game-name">${entry.gameName}</div>
                         <div class="stats-game-meta">${winnerBadge}${sharedBadge}</div>
                     </div>
-                    <div class="stats-game-count">
-                        <span class="history-entry-date">${syncIcon}${formatRelativeDate(entry.date)}</span>
-                    </div>
+                   
                     ${chevronRight}
                 `;
                 row.addEventListener('click', () => showHistoryDetail(entry));
