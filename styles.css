@@ -1537,6 +1537,10 @@
             background: #e74c3c;
         }
 
+        .resta-toggle input[type="checkbox"]:checked + .fixed-pts-pill {
+            background: var(--primary-color);
+        }
+
         .resta-toggle input[type="checkbox"]:checked + .resta-toggle-pill::after {
             left: 19px;
         }

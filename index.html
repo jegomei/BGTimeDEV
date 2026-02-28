@@ -265,7 +265,7 @@
               
                 <button class="scoring-type-card" onclick="selectScoringType('rounds_with_items')">
                     <span class="stc-icon"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;flex-shrink:0;"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
-                    <span class="stc-label">Rondas + ítems</span>
+                    <span class="stc-label">Rondas con categorías</span>
                     <span class="stc-sub">Nº de rondas fijo, con distintas categorías en cada ronda</span>
                 </button>
                 
@@ -301,6 +301,12 @@
                                 <span class="resta-toggle-pill"></span>
                                 <span class="resta-toggle-label">Resta puntos</span>
                             </label>
+                            <label class="resta-toggle">
+                                <input type="checkbox" class="item-fixed" onchange="toggleFixedPts(this)">
+                                <span class="resta-toggle-pill fixed-pts-pill"></span>
+                                <span class="resta-toggle-label">Pts fijos</span>
+                            </label>
+                            <input type="number" class="item-fixed-value" min="1" placeholder="0" style="display:none;width:56px;padding:4px 6px;border-radius:8px;text-align:center;">
                             <button class="item-delete-btn" onclick="removeItem(this)" title="Eliminar ítem"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                         </div>
                     </div>
@@ -332,6 +338,12 @@
                                 <span class="resta-toggle-pill"></span>
                                 <span class="resta-toggle-label">Resta puntos</span>
                             </label>
+                            <label class="resta-toggle">
+                                <input type="checkbox" class="round-item-fixed" onchange="toggleFixedPts(this)">
+                                <span class="resta-toggle-pill fixed-pts-pill"></span>
+                                <span class="resta-toggle-label">Pts fijos</span>
+                            </label>
+                            <input type="number" class="round-item-fixed-value" min="1" placeholder="0" style="display:none;width:56px;padding:4px 6px;border-radius:8px;text-align:center;">
                             <button class="item-delete-btn" onclick="removeRoundItem(this)" title="Eliminar ítem"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                         </div>
                     </div>

@@ -1268,6 +1268,12 @@
                         <span class="resta-toggle-pill"></span>
                         <span class="resta-toggle-label">Resta puntos</span>
                     </label>
+                    <label class="resta-toggle">
+                        <input type="checkbox" class="round-item-fixed" onchange="toggleFixedPts(this)">
+                        <span class="resta-toggle-pill fixed-pts-pill"></span>
+                        <span class="resta-toggle-label">Pts fijos</span>
+                    </label>
+                    <input type="number" class="round-item-fixed-value" min="1" placeholder="0" style="display:none;width:56px;padding:4px 6px;border-radius:8px;text-align:center;">
                     <button class="item-delete-btn" onclick="removeRoundItem(this)" title="Eliminar ítem"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                 </div>
             `;
@@ -1290,10 +1296,22 @@
                         <span class="resta-toggle-pill"></span>
                         <span class="resta-toggle-label">Resta puntos</span>
                     </label>
+                    <label class="resta-toggle">
+                        <input type="checkbox" class="item-fixed" onchange="toggleFixedPts(this)">
+                        <span class="resta-toggle-pill fixed-pts-pill"></span>
+                        <span class="resta-toggle-label">Pts fijos</span>
+                    </label>
+                    <input type="number" class="item-fixed-value" min="1" placeholder="0" style="display:none;width:56px;padding:4px 6px;border-radius:8px;text-align:center;">
                     <button class="item-delete-btn" onclick="removeItem(this)" title="Eliminar ítem"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                 </div>
             `;
             container.appendChild(div);
+        }
+
+        function toggleFixedPts(cb) {
+            const footer = cb.closest('.scoring-item-footer');
+            const valInput = footer.querySelector('.item-fixed-value, .round-item-fixed-value');
+            if (valInput) valInput.style.display = cb.checked ? '' : 'none';
         }
 
         function removeItem(button) {
@@ -1324,10 +1342,15 @@
                 
             } else if (gameData.scoringType === 'items') {
                 const items = Array.from(document.querySelectorAll('.item-name'))
-                    .map((input, index) => ({
-                        name: input.value.trim(),
-                        negative: document.querySelectorAll('.item-negative')[index].checked
-                    }))
+                    .map((input, index) => {
+                        const fixedCb  = document.querySelectorAll('.item-fixed')[index];
+                        const fixedVal = document.querySelectorAll('.item-fixed-value')[index];
+                        return {
+                            name: input.value.trim(),
+                            negative: document.querySelectorAll('.item-negative')[index].checked,
+                            fixedPoints: fixedCb?.checked ? (parseInt(fixedVal?.value) || 0) : null,
+                        };
+                    })
                     .filter(item => item.name !== '');
                 
                 if (items.length === 0) {
@@ -1342,10 +1365,15 @@
                 gameData.numRounds = parseInt(document.getElementById('numRoundsWithItems').value);
                 
                 const roundItems = Array.from(document.querySelectorAll('.round-item-name'))
-                    .map((input, index) => ({
-                        name: input.value.trim(),
-                        negative: document.querySelectorAll('.round-item-negative')[index].checked
-                    }))
+                    .map((input, index) => {
+                        const fixedCb  = document.querySelectorAll('.round-item-fixed')[index];
+                        const fixedVal = document.querySelectorAll('.round-item-fixed-value')[index];
+                        return {
+                            name: input.value.trim(),
+                            negative: document.querySelectorAll('.round-item-negative')[index].checked,
+                            fixedPoints: fixedCb?.checked ? (parseInt(fixedVal?.value) || 0) : null,
+                        };
+                    })
                     .filter(item => item.name !== '');
                 
                 if (roundItems.length === 0) {
@@ -1386,9 +1414,15 @@
             table += '</tr></thead><tbody>';
             
             gameData.items.forEach((item, itemIndex) => {
-                table += `<tr><td><strong>${item.name}${item.negative ? ' (-)' : ''}</strong></td>`;
+                const fixedLabel = item.fixedPoints != null
+                    ? ` (${item.negative ? '-' : '+'}${item.fixedPoints}pts)`
+                    : (item.negative ? ' (-)' : '');
+                table += `<tr><td><strong>${item.name}${fixedLabel}</strong></td>`;
                 gameData.players.forEach((player, playerIndex) => {
-                    table += `<td><input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" id="score-${playerIndex}-${itemIndex}" onchange="updateTotalItems(${playerIndex})"></td>`;
+                    const cell = item.fixedPoints != null
+                        ? `<td><label style="display:flex;align-items:center;justify-content:center;"><input type="checkbox" id="score-${playerIndex}-${itemIndex}" onchange="updateTotalItems(${playerIndex})" style="width:22px;height:22px;cursor:pointer;"></label></td>`
+                        : `<td><input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" id="score-${playerIndex}-${itemIndex}" onchange="updateTotalItems(${playerIndex})"></td>`;
+                    table += cell;
                 });
                 table += '</tr>';
             });
@@ -1741,9 +1775,15 @@
             
             gameData.roundItems.forEach((item, itemIndex) => {
                 const isFirst = itemIndex === 0;
-                html += `<tr${isFirst ? ' style="border-top:2px solid var(--primary-color)"' : ''}><td><strong>${item.name}${item.negative ? ' (-)' : ''}</strong></td>`;
+                const fixedLabel = item.fixedPoints != null
+                    ? ` (${item.negative ? '-' : '+'}${item.fixedPoints}pts)`
+                    : (item.negative ? ' (-)' : '');
+                html += `<tr${isFirst ? ' style="border-top:2px solid var(--primary-color)"' : ''}><td><strong>${item.name}${fixedLabel}</strong></td>`;
                 gameData.players.forEach((player, playerIndex) => {
-                    html += `<td><input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" id="round-item-${playerIndex}-${itemIndex}" style="width: 100%;"></td>`;
+                    const cell = item.fixedPoints != null
+                        ? `<td><label style="display:flex;align-items:center;justify-content:center;"><input type="checkbox" id="round-item-${playerIndex}-${itemIndex}" onchange="updateRoundTotal(${playerIndex})" style="width:22px;height:22px;cursor:pointer;"></label></td>`
+                        : `<td><input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" id="round-item-${playerIndex}-${itemIndex}" style="width: 100%;"></td>`;
+                    html += cell;
                 });
                 html += '</tr>';
             });
@@ -1765,9 +1805,10 @@
             
             gameData.roundItems.forEach((item, itemIndex) => {
                 gameData.players.forEach((player, playerIndex) => {
-                    const input = document.getElementById(`round-item-${playerIndex}-${itemIndex}`);
-                    if (input) {
-                        input.addEventListener('input', () => updateRoundTotal(playerIndex));
+                    const el = document.getElementById(`round-item-${playerIndex}-${itemIndex}`);
+                    if (el) {
+                        const evt = item.fixedPoints != null ? 'change' : 'input';
+                        el.addEventListener(evt, () => updateRoundTotal(playerIndex));
                     }
                 });
             });
@@ -1796,7 +1837,9 @@
             let total = 0;
             gameData.roundItems.forEach((item, itemIndex) => {
                 const el = document.getElementById(`round-item-${playerIndex}-${itemIndex}`);
-                const value = el ? (parseInt(el.value) || 0) : 0;
+                const value = item.fixedPoints != null
+                    ? (el?.checked ? item.fixedPoints : 0)
+                    : (el ? (parseInt(el.value) || 0) : 0);
                 total += item.negative ? -value : value;
             });
             const totalElement = document.getElementById(`round-total-${playerIndex}`);
@@ -1858,7 +1901,10 @@
         function updateTotalItems(playerIndex) {
             let total = 0;
             gameData.items.forEach((item, itemIndex) => {
-                const value = parseInt(document.getElementById(`score-${playerIndex}-${itemIndex}`).value) || 0;
+                const el = document.getElementById(`score-${playerIndex}-${itemIndex}`);
+                const value = item.fixedPoints != null
+                    ? (el?.checked ? item.fixedPoints : 0)
+                    : (parseInt(el?.value) || 0);
                 total += item.negative ? -value : value;
             });
             document.getElementById(`total-${playerIndex}`).textContent = total;
@@ -2044,7 +2090,9 @@
                 gameData.itemScores = gameData.players.map((player, playerIndex) =>
                     gameData.items.map((item, itemIndex) => {
                         const el = document.getElementById(`score-${playerIndex}-${itemIndex}`);
-                        return el ? (parseInt(el.value) || 0) : 0;
+                        return item.fixedPoints != null
+                            ? (el?.checked ? item.fixedPoints : 0)
+                            : (el ? (parseInt(el.value) || 0) : 0);
                     })
                 );
             } else if (gameData.scoringType === 'rounds') {
@@ -2072,7 +2120,10 @@
                 const roundScores = [];
                 gameData.roundItems.forEach((item, itemIndex) => {
                     const el = document.getElementById(`round-item-${playerIndex}-${itemIndex}`);
-                    roundScores.push(el ? (parseInt(el.value) || 0) : 0);
+                    const score = item.fixedPoints != null
+                        ? (el?.checked ? item.fixedPoints : 0)
+                        : (el ? (parseInt(el.value) || 0) : 0);
+                    roundScores.push(score);
                 });
                 gameData.roundItemScores[playerIndex].push(roundScores);
             });
@@ -2317,6 +2368,12 @@
                             <span class="resta-toggle-pill"></span>
                             <span class="resta-toggle-label">Resta puntos</span>
                         </label>
+                        <label class="resta-toggle">
+                            <input type="checkbox" class="item-fixed" onchange="toggleFixedPts(this)">
+                            <span class="resta-toggle-pill fixed-pts-pill"></span>
+                            <span class="resta-toggle-label">Pts fijos</span>
+                        </label>
+                        <input type="number" class="item-fixed-value" min="1" placeholder="0" style="display:none;width:56px;padding:4px 6px;border-radius:8px;text-align:center;">
                         <button class="item-delete-btn" onclick="removeItem(this)" title="Eliminar ítem"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                     </div>
                 </div>
@@ -3866,10 +3923,15 @@
             itemsContainer.innerHTML = '';
             (tpl.items || []).forEach(it => {
                 addItemInput();
-                const names = itemsContainer.querySelectorAll('.item-name');
-                const negs  = itemsContainer.querySelectorAll('.item-negative');
+                const names     = itemsContainer.querySelectorAll('.item-name');
+                const negs      = itemsContainer.querySelectorAll('.item-negative');
+                const fixedCbs  = itemsContainer.querySelectorAll('.item-fixed');
+                const fixedVals = itemsContainer.querySelectorAll('.item-fixed-value');
                 names[names.length - 1].value = it.name || '';
                 negs[negs.length - 1].checked = !!it.negative;
+                fixedCbs[fixedCbs.length - 1].checked = it.fixedPoints != null;
+                fixedVals[fixedVals.length - 1].value = it.fixedPoints || '';
+                fixedVals[fixedVals.length - 1].style.display = it.fixedPoints != null ? '' : 'none';
             });
             if ((tpl.items || []).length === 0) addItemInput();
 
@@ -3877,10 +3939,15 @@
             roundItemsContainer.innerHTML = '';
             (tpl.roundItems || []).forEach(it => {
                 addRoundItemInput();
-                const names = roundItemsContainer.querySelectorAll('.round-item-name');
-                const negs  = roundItemsContainer.querySelectorAll('.round-item-negative');
+                const names     = roundItemsContainer.querySelectorAll('.round-item-name');
+                const negs      = roundItemsContainer.querySelectorAll('.round-item-negative');
+                const fixedCbs  = roundItemsContainer.querySelectorAll('.round-item-fixed');
+                const fixedVals = roundItemsContainer.querySelectorAll('.round-item-fixed-value');
                 names[names.length - 1].value = it.name || '';
                 negs[negs.length - 1].checked = !!it.negative;
+                fixedCbs[fixedCbs.length - 1].checked = it.fixedPoints != null;
+                fixedVals[fixedVals.length - 1].value = it.fixedPoints || '';
+                fixedVals[fixedVals.length - 1].style.display = it.fixedPoints != null ? '' : 'none';
             });
             if ((tpl.roundItems || []).length === 0) addRoundItemInput();
         }
@@ -3899,11 +3966,19 @@
                 roundScoringMode: 'all_at_end',
                 items: type === 'items' ?
                     Array.from(document.querySelectorAll('.item-name'))
-                        .map((inp, i) => ({ name: inp.value.trim(), negative: document.querySelectorAll('.item-negative')[i].checked }))
+                        .map((inp, i) => {
+                            const fixedCb  = document.querySelectorAll('.item-fixed')[i];
+                            const fixedVal = document.querySelectorAll('.item-fixed-value')[i];
+                            return { name: inp.value.trim(), negative: document.querySelectorAll('.item-negative')[i].checked, fixedPoints: fixedCb?.checked ? (parseInt(fixedVal?.value) || 0) : null };
+                        })
                         .filter(it => it.name) : [],
                 roundItems: type === 'rounds_with_items' ?
                     Array.from(document.querySelectorAll('.round-item-name'))
-                        .map((inp, i) => ({ name: inp.value.trim(), negative: document.querySelectorAll('.round-item-negative')[i].checked }))
+                        .map((inp, i) => {
+                            const fixedCb  = document.querySelectorAll('.round-item-fixed')[i];
+                            const fixedVal = document.querySelectorAll('.round-item-fixed-value')[i];
+                            return { name: inp.value.trim(), negative: document.querySelectorAll('.round-item-negative')[i].checked, fixedPoints: fixedCb?.checked ? (parseInt(fixedVal?.value) || 0) : null };
+                        })
                         .filter(it => it.name) : [],
             };
             if (pt.maxPlayers) tpl.maxPlayers = pt.maxPlayers;
