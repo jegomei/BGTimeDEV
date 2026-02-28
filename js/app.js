@@ -234,7 +234,7 @@
 
         function goToActiveGame() {
             if (!_gameInProgress) {
-                showToast('No hay partida en curso');
+                openNoGameSheet();
                 return;
             }
             if (!_activeGameScreenId) return;
@@ -2693,7 +2693,18 @@
         }
 
         // ── PERSISTENCIA DE ESTADO ─────────────────────────────────
+        function openNoGameSheet() {
+            document.getElementById('noGameSheet').style.display = 'flex';
+        }
+        function closeNoGameSheet() {
+            document.getElementById('noGameSheet').style.display = 'none';
+        }
+
         function saveAppState() {
+            if (!_gameInProgress) {
+                localStorage.removeItem('bgtime_state');
+                return;
+            }
             const activeScreen = document.querySelector('.screen.active');
             if (!activeScreen) return;
             let screenId = activeScreen.id;

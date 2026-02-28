@@ -35,13 +35,11 @@
             </svg>
         </button>
         <button id="activeGameBtn" class="top-bar-btn" onclick="goToActiveGame()" aria-label="Partida en curso">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="2" width="20" height="20" rx="3"/>
-                <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/>
-                <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/>
-                <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
-                <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" stroke="none"/>
-                <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" stroke="none"/>
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <circle cx="12" cy="4.5" r="3.5"/>
+                <path d="M10 8h4c1.5 1.5 2 4 1.5 5.5H8.5C8 12 8.5 9.5 10 8z"/>
+                <rect x="6" y="14" width="12" height="2.5" rx="1.25"/>
+                <rect x="3.5" y="17.5" width="17" height="3.5" rx="1.75"/>
             </svg>
         </button>
         <button id="statsBtn" class="top-bar-btn" onclick="showStats()" aria-label="Estadísticas">
@@ -815,5 +813,13 @@
 
     <!-- Registro del Service Worker (PWA) -->
     </script>
+
+    <!-- Sheet: sin partida en curso -->
+    <div id="noGameSheet" onclick="if(event.target===this)closeNoGameSheet()"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:flex-end;">
+        <div class="game-library-sheet" style="padding:32px 24px 40px;text-align:center;">
+            <h1 style="margin:0;">No tienes ninguna partida en curso</h1>
+        </div>
+    </div>
 </body>
 </html>
