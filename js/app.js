@@ -2991,20 +2991,6 @@
                 });
             });
 
-            // Juegos solo en historial (sin plantilla custom)
-            Object.values(freqMap).forEach(data => {
-                const key = normStr(data.name);
-                if (seen.has(key)) return;
-                seen.add(key);
-                const libEntry = _libraryIndex.find(e => e.norm === key);
-                games.push({
-                    name: data.name,
-                    emoji: data.emoji,
-                    libIndex: libEntry ? libEntry.index : null,
-                    count: data.count
-                });
-            });
-
             // Ordenar: más frecuentes primero; empate → alfabético
             games.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'es'));
 
@@ -3148,9 +3134,21 @@
         function submitAddGame() {
             const name = document.getElementById('addGameName').value.trim();
             const emoji = document.getElementById('addGameEmoji').value.trim() || '🎲';
+            const err = document.getElementById('addGameError');
+            err.style.display = 'none';
             if (!name) {
-                const err = document.getElementById('addGameError');
-                err.textContent = 'Escribe el nombre del juego';
+                err.textContent = 'Escribe el nombre del juego.';
+                err.style.display = '';
+                return;
+            }
+            const normName = normStr(name);
+            if (getCustomTemplates().some(t => normStr(t.name) === normName)) {
+                err.textContent = 'Ya hay un juego en la biblioteca con ese nombre.';
+                err.style.display = '';
+                return;
+            }
+            if (getHistory().some(e => normStr(e.gameName) === normName)) {
+                err.textContent = 'Ya hay un juego en el historial con ese nombre.Añádelo a tu biblioteca desde ahí.';
                 err.style.display = '';
                 return;
             }
@@ -3431,7 +3429,6 @@
             const input = document.getElementById('addPlayerNameInput');
             modal.style.display = 'flex';
             input.value = '';
-            setTimeout(() => input.focus(), 100);
             
             // Permitir añadir con Enter
             input.onkeydown = (e) => {
@@ -3954,6 +3951,19 @@
             const name = document.getElementById('tplName').value.trim();
             if (!name) {
                 document.getElementById('tplFormError').textContent = 'El nombre es obligatorio.';
+                return;
+            }
+            const normName = normStr(name);
+            const allTpls = getCustomTemplates();
+            const otherTpls = _editingTemplateIndex !== null
+                ? allTpls.filter((_, i) => i !== _editingTemplateIndex)
+                : allTpls;
+            if (otherTpls.some(t => normStr(t.name) === normName)) {
+                document.getElementById('tplFormError').textContent = 'Ya hay un juego en la biblioteca con ese nombre.';
+                return;
+            }
+            if (_editingTemplateIndex === null && getHistory().some(e => normStr(e.gameName) === normName)) {
+                document.getElementById('tplFormError').textContent = 'Ya hay un juego en el historial con ese nombre. Añádelo a tu bilioteca desde ahí.';
                 return;
             }
             if (!_tplScoringConfigured) {
