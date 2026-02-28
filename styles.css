@@ -3522,3 +3522,42 @@
             font-size: 16px;
         }
 
+/* ── Emoji picker ─────────────────────────────── */
+.emoji-field-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.emoji-picker-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    min-height: unset;
+    border-radius: 6px;
+}
+.emoji-picker-btn:hover {
+    color: var(--primary-color);
+    background: var(--hover-bg, rgba(102,126,234,0.08));
+}
+
+.emoji-picker-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 9999;
+}
+
+emoji-picker {
+    --background: var(--container-bg, #fff);
+    --border-color: var(--input-border, #e0e0e0);
+    --border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    border-radius: 12px;
+}
+

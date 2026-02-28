@@ -3770,7 +3770,7 @@
             _pendingHistoryTpl = null;
             document.getElementById('templateFormTitle').textContent = 'Editar plantilla';
             document.getElementById('tplSaveBtn').textContent = 'Guardar';
-            document.getElementById('tplEmoji').value = tpl.emoji || '';
+            document.getElementById('tplEmoji').value = tpl.emoji || '🎲';
             document.getElementById('tplName').value = tpl.name || '';
             document.getElementById('tplMaxPlayers').value = tpl.maxPlayers || '';
             document.getElementById('tplFormError').textContent = '';
@@ -4791,4 +4791,35 @@
                     .then(reg => console.log('BGTime SW registrado:', reg.scope))
                     .catch(err => console.warn('BGTime SW error:', err));
             });
+        }
+
+        // ── Emoji picker ──────────────────────────────────────────────
+        function toggleEmojiPicker(inputId, pickerId) {
+            const popover = document.getElementById(pickerId);
+            const isOpen = popover.style.display !== 'none';
+            // Cerrar todos los pickers abiertos
+            document.querySelectorAll('.emoji-picker-popover').forEach(p => p.style.display = 'none');
+            if (isOpen) return;
+
+            popover.style.display = '';
+            const picker = popover.querySelector('emoji-picker');
+
+            // Reemplazar listener previo para evitar duplicados entre aperturas
+            if (picker._emojiHandler) picker.removeEventListener('emoji-click', picker._emojiHandler);
+            picker._emojiHandler = (e) => {
+                document.getElementById(inputId).value = e.detail.unicode;
+                popover.style.display = 'none';
+            };
+            picker.addEventListener('emoji-click', picker._emojiHandler);
+
+            // Cerrar al hacer clic fuera (setTimeout para no capturar el clic de apertura)
+            setTimeout(() => {
+                const onOutside = (e) => {
+                    if (!popover.contains(e.target) && !e.target.closest('[onclick*="toggleEmojiPicker"]')) {
+                        popover.style.display = 'none';
+                        document.removeEventListener('click', onOutside);
+                    }
+                };
+                document.addEventListener('click', onOutside);
+            }, 0);
         }

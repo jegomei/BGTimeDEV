@@ -20,6 +20,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BGTime">
+    <!-- Emoji picker -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
     <!-- Firebase SDK -->
     <script type="module" src="js/firebase.js"></script>
 
@@ -610,7 +612,15 @@
 
                 <div class="tpl-form-group">
                     <label>Emoji</label>
-                    <input type="text" id="tplEmoji" placeholder="🎲" maxlength="2" class="tpl-input tpl-input-sm">
+                    <div class="emoji-field-wrap">
+                        <input type="text" id="tplEmoji" readonly class="tpl-input tpl-input-sm emoji-input" value="🎲">
+                        <button type="button" class="emoji-picker-btn" onclick="toggleEmojiPicker('tplEmoji', 'tplEmojiPicker')" title="Elegir emoji">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                        </button>
+                        <div id="tplEmojiPicker" class="emoji-picker-popover" style="display:none;">
+                            <emoji-picker></emoji-picker>
+                        </div>
+                    </div>
                 </div>
                 <div class="tpl-form-group">
                     <label>Nombre del juego</label>
@@ -769,7 +779,15 @@
             </button>
             <div class="game-library-sheet-title">Nuevo juego</div>
             <div class="add-game-form">
-                <input type="text" id="addGameEmoji" class="add-game-emoji-input" placeholder="🎲" maxlength="4" autocomplete="off">
+                <div class="emoji-field-wrap">
+                    <input type="text" id="addGameEmoji" readonly class="add-game-emoji-input emoji-input" value="🎲">
+                    <button type="button" class="emoji-picker-btn" onclick="toggleEmojiPicker('addGameEmoji', 'addGameEmojiPicker')" title="Elegir emoji">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                    </button>
+                    <div id="addGameEmojiPicker" class="emoji-picker-popover" style="display:none;">
+                        <emoji-picker></emoji-picker>
+                    </div>
+                </div>
                 <input type="text" id="addGameName" class="add-game-name-input" placeholder="Nombre del juego" autocomplete="off" autocorrect="off">
             </div>
             <div id="addGameError" class="error" style="display:none;"></div>
