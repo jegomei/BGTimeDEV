@@ -3523,6 +3523,18 @@
         }
 
 /* ── Emoji picker ─────────────────────────────── */
+.emoji-input {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 4px !important;
+    font-size: 22px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    cursor: default;
+    text-align: center;
+}
+
 .emoji-field-wrap {
     position: relative;
     display: inline-flex;
