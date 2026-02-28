@@ -279,6 +279,7 @@
 
         // Exponer funciones globalmente para que los botones HTML las usen
         window._fbIsLoggedIn = () => !!(auth && auth.currentUser);
+        window._fbCurrentUid = () => auth.currentUser?.uid || null;
 
         window._fbSignIn = () => signInWithPopup(auth, provider).catch(err => {
             console.error("Error en login:", err);
