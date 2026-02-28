@@ -2395,7 +2395,15 @@
             list.className = 'stats-game-list';
             container.appendChild(list);
 
+            // Mapa de plantillas propias para leer nombre/emoji localmente
+            const tplMap = {};
+            (getCustomTemplates() || []).forEach(t => { tplMap[normStr(t.name)] = t; });
+
             visible.forEach(entry => {
+                const tpl = tplMap[normStr(entry.gameName)];
+                const displayEmoji = tpl?.emoji || entry.emoji || '🎲';
+                const displayName  = tpl?.name  || entry.gameName;
+
                 const winner = entry.results?.[0]?.player || '';
                 const winnerBadge = winner
                     ? `<span class="stats-game-winner-badge">${crownSvg}${winner}</span>`
@@ -2428,9 +2436,9 @@
                 const row = document.createElement('div');
                 row.className = 'stats-game-row';
                 row.innerHTML = `
-                    <span class="stats-game-emoji">${entry.emoji || '🎲'}</span>
+                    <span class="stats-game-emoji">${displayEmoji}</span>
                     <div class="stats-game-info">
-                        <div class="stats-game-name">${entry.gameName}</div>
+                        <div class="stats-game-name">${displayName}</div>
                         <div class="stats-game-meta">${winnerBadge}${sharedBadge}</div>
                     </div>
                    
@@ -3902,24 +3910,7 @@
 
             const list = getCustomTemplates();
             if (pt.index !== null) {
-                const oldEmoji = list[pt.index].emoji;
                 list[pt.index] = tpl;
-                if (tpl.emoji !== oldEmoji) {
-                    const nameNorm = tpl.name.trim().toLowerCase();
-                    const history = getHistory();
-                    let changed = false;
-                    history.forEach(e => {
-                        if (e.sharedBy) return;
-                        if (e.gameName.trim().toLowerCase() === nameNorm) { e.emoji = tpl.emoji; changed = true; }
-                    });
-                    if (changed) {
-                        saveHistory(history);
-                        if (window._fbSaveEntry) {
-                            history.filter(e => !e.sharedBy && e.gameName.trim().toLowerCase() === nameNorm)
-                                   .forEach(e => window._fbSaveEntry(e));
-                        }
-                    }
-                }
             } else {
                 list.push(tpl);
             }
@@ -4023,41 +4014,12 @@
             if (maxP >= 2) tpl.maxPlayers = maxP;
 
             const list = getCustomTemplates();
-            const existingInList = _editingTemplateIndex !== null ? list[_editingTemplateIndex] : null;
-            const oldName = existingInList ? existingInList.name : tpl.name;
-            const oldEmoji = existingInList ? (existingInList.emoji || '🎲') : null;
             if (_editingTemplateIndex !== null) {
                 list[_editingTemplateIndex] = tpl;
             } else {
                 list.push(tpl);
             }
             saveCustomTemplates(list);
-
-            // ── Propagar nombre y/o emoji al historial (solo entradas propias) ──
-            if (_editingTemplateIndex !== null) {
-                const nameChanged = normStr(tpl.name) !== normStr(oldName);
-                const emojiChanged = tpl.emoji !== oldEmoji;
-                if (nameChanged || emojiChanged) {
-                    const oldNameNorm = normStr(oldName);
-                    const history = getHistory();
-                    let changed = false;
-                    history.forEach(e => {
-                        if (e.sharedBy) return;
-                        if (normStr(e.gameName) === oldNameNorm) {
-                            if (nameChanged) e.gameName = tpl.name;
-                            if (emojiChanged) e.emoji = tpl.emoji;
-                            changed = true;
-                        }
-                    });
-                    if (changed) {
-                        saveHistory(history);
-                        if (window._fbSaveEntry) {
-                            history.filter(e => !e.sharedBy && normStr(e.gameName) === normStr(tpl.name))
-                                   .forEach(e => window._fbSaveEntry(e));
-                        }
-                    }
-                }
-            }
 
             document.getElementById('templateFormModal').style.display = 'none';
             renderLibraryShelves();
@@ -4798,17 +4760,8 @@
         }
 
         function _saveEmojiForGame(gameKey, emoji) {
-            const history = getHistory();
-            history.forEach(e => {
-                if (e.gameName.trim().toLowerCase() === gameKey) e.emoji = emoji;
-            });
-            saveHistory(history);
             document.getElementById('gameDetailEmoji').textContent = emoji;
             document.querySelectorAll('#gameDetailBody .history-card-emoji').forEach(c => c.textContent = emoji);
-            if (window._fbSaveEntry) {
-                history.filter(e => e.gameName.trim().toLowerCase() === gameKey)
-                       .forEach(e => window._fbSaveEntry(e));
-            }
             const statsCard = document.getElementById('statsCard-game');
             if (statsCard && statsCard.classList.contains('open')) {
                 statsCard.innerHTML = buildStatsGame(getHistory());
