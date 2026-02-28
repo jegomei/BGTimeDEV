@@ -2537,6 +2537,48 @@
             document.getElementById('historyDetailModal').style.display = 'none';
         }
 
+        function editHistoryEntry() {
+            const entry = _currentHistoryEntry;
+            if (!entry) return;
+            document.getElementById('editEntryInputs').innerHTML = entry.results.map((r, i) =>
+                `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+                    <span style="flex:1;font-weight:600;">${r.player}</span>
+                    <input type="number" inputmode="numeric" id="edit-score-${i}" value="${r.score}"
+                           style="width:80px;text-align:center;padding:6px 8px;border-radius:8px;border:1.5px solid var(--border-color);background:var(--input-bg);color:var(--text-primary);">
+                </div>`
+            ).join('');
+            document.getElementById('editEntryModal').style.display = 'flex';
+        }
+
+        function closeEditEntryModal() {
+            document.getElementById('editEntryModal').style.display = 'none';
+        }
+
+        function saveEditedHistoryEntry() {
+            const entry = _currentHistoryEntry;
+            if (!entry) return;
+
+            const newResults = entry.results
+                .map((r, i) => ({ ...r, score: parseInt(document.getElementById(`edit-score-${i}`)?.value) || 0 }))
+                .sort((a, b) => b.score - a.score);
+
+            // Actualizar caché local
+            const history = getHistory();
+            const idx = history.findIndex(e => e.id === entry.id);
+            if (idx !== -1) {
+                history[idx] = { ...history[idx], results: newResults };
+                saveHistory(history);
+                _currentHistoryEntry = history[idx];
+            }
+
+            // Actualizar en Firebase si hay sesión
+            if (window._fbUpdateEntry) window._fbUpdateEntry(entry.id, { results: newResults });
+
+            document.getElementById('editEntryModal').style.display = 'none';
+            showHistoryDetail(_currentHistoryEntry);
+            renderHistoryList();
+        }
+
         function deleteHistoryEntry() {
             const entry = _currentHistoryEntry;
             if (!entry) return;
@@ -2593,6 +2635,14 @@
                 <div class="history-modal-detail-table" style="display:none">${buildHistoryDetailTable(entry)}</div>
                 ${addToLibBtn}
             `;
+
+            // Botón editar: solo si es reciente (<5 min) y es el creador
+            const editBtn = document.getElementById('historyDetailEditBtn');
+            const currentUid = window._fbCurrentUid?.();
+            const isCreator = !window._fbIsLoggedIn?.()
+                || (entry.creatorUid && entry.creatorUid === currentUid);
+            const isRecent = (Date.now() - entry.id) < 5 * 60 * 1000;
+            editBtn.style.display = (isCreator && isRecent) ? 'flex' : 'none';
 
             document.getElementById('historyDetailModal').style.display = 'flex';
         }

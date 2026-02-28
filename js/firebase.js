@@ -131,6 +131,18 @@
             }
         };
 
+        // Actualiza campos de una partida existente en Firestore
+        window._fbUpdateEntry = async (entryId, updatedFields) => {
+            const user = auth.currentUser;
+            if (!user) return;
+            try {
+                const ref = doc(db, 'matches', String(entryId));
+                await updateDoc(ref, updatedFields);
+            } catch (e) {
+                console.warn('Error actualizando en Firestore:', e);
+            }
+        };
+
         window.showSyncToast = function showSyncToast(msg) {
             let toast = document.getElementById('syncToast');
             if (!toast) {
