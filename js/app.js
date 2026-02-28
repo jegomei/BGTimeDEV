@@ -2288,6 +2288,13 @@
             document.getElementById('gameName').value = '';
             document.getElementById('gameNameError').textContent = '';
             document.getElementById('reorderEachRound').checked = true;
+            document.getElementById('timerNone').checked = true;
+            document.getElementById('timerPerTurn').checked = false;
+            document.getElementById('timerChess').checked = false;
+            document.querySelectorAll('#playersScreen .scoring-type-card').forEach(b => {
+                b.classList.toggle('active', b.getAttribute('onclick')?.includes("'none'"));
+            });
+            updateTimerOptions();
             clearLibrarySelection();
             document.getElementById('playersContainer').innerHTML = `
                 <div class="player-input-row">
@@ -2359,44 +2366,6 @@
             // Subir a Firestore si hay sesión
             if (window._fbSaveEntry) window._fbSaveEntry(entry);
 
-            // ── Auto-guardar plantilla si el juego es personalizado ──────
-            // Solo cuando el usuario escribió un nombre de juego libre (templateIndex === '')
-            if (templateIndex === '') {
-                _autoSaveGameAsTemplate(gameData);
-            }
-        }
-
-        // Guarda automáticamente un juego personalizado como plantilla si aún no existe
-        function _autoSaveGameAsTemplate(gd) {
-            if (!gd || !gd.gameName) return;
-            const list = getCustomTemplates();
-            const nameNorm = gd.gameName.trim().toLowerCase();
-
-            // Si ya existe una plantilla con ese nombre (ignorando mayúsculas), no duplicar
-            const alreadyExists = list.some(t => t.name.trim().toLowerCase() === nameNorm);
-            if (alreadyExists) return;
-
-            // Construir la plantilla a partir de los datos de la partida
-            const scoringType = gd.scoringType || 'rounds';
-            const tpl = {
-                id: Date.now(),
-                name: gd.gameName.trim(),
-                emoji: '🎲',
-                scoringType,
-                numRounds: gd.numRounds || 5,
-                targetScore: gd.targetScore || 40,
-                roundScoringMode: gd.roundScoringMode || 'all_at_end',
-                items: scoringType === 'items'
-                    ? (gd.items || []).map(it => ({ name: it.name || it, negative: it.negative || false }))
-                    : [],
-                roundItems: scoringType === 'rounds_with_items'
-                    ? (gd.roundItems || []).map(it => ({ name: it.name || it, negative: it.negative || false }))
-                    : [],
-                _autoSaved: true   // marca interna para distinguirlas si se necesita en el futuro
-            };
-
-            list.push(tpl);
-            saveCustomTemplates(list);
         }
 
         let previousScreenId = 'setupScreen';
@@ -2958,6 +2927,12 @@
         // ── Biblioteca de juegos: estanterías ────────────────────────
         let _glModalSelectedIndex = null;
         let _glModalHistGameName = null, _glModalHistGameEmoji = null;
+        let _librarySortMode = 'az'; // 'az' | 'recent' | 'popular'
+
+        function setLibrarySortMode(mode) {
+            _librarySortMode = mode;
+            renderLibraryShelves();
+        }
 
         function renderLibraryShelves() {
             const container = document.getElementById('libraryGamesList');
@@ -2966,12 +2941,14 @@
             const templates = getCustomTemplates ? getCustomTemplates() : [];
             const history = getHistory();
 
-            // Calcular frecuencia de cada juego desde el historial
+            // Calcular frecuencia y fecha de última partida desde el historial
             const freqMap = {};
+            const lastPlayedMap = {};
             history.forEach(entry => {
                 const key = normStr(entry.gameName);
-                if (!freqMap[key]) freqMap[key] = { count: 0, name: entry.gameName, emoji: entry.emoji || '🎲' };
+                if (!freqMap[key]) freqMap[key] = { count: 0 };
                 freqMap[key].count++;
+                if (!lastPlayedMap[key] || entry.id > lastPlayedMap[key]) lastPlayedMap[key] = entry.id;
             });
 
             // Recopilar juegos únicos (templates tienen prioridad sobre historial puro)
@@ -2987,14 +2964,32 @@
                     name: tpl.name,
                     emoji: tpl.emoji || '🎲',
                     libIndex: libEntry ? libEntry.index : null,
-                    count: freqMap[key] ? freqMap[key].count : 0
+                    count: freqMap[key]?.count || 0,
+                    lastPlayed: lastPlayedMap[key] || 0
                 });
             });
 
-            // Ordenar: más frecuentes primero; empate → alfabético
-            games.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'es'));
+            // Ordenar según el modo activo
+            const sort = _librarySortMode || 'az';
+            if (sort === 'recent') {
+                games.sort((a, b) => (b.lastPlayed - a.lastPlayed) || a.name.localeCompare(b.name, 'es'));
+            } else if (sort === 'popular') {
+                games.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'es'));
+            } else {
+                games.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+            }
 
-            // Renderizar: botón añadir siempre primero
+            // Barra de ordenación
+            const sortBar = `<div style="display:flex;gap:6px;margin-bottom:12px;">${
+                [['az','A→Z'],['recent','Recientes'],['popular','Más jugados']].map(([m, label]) => {
+                    const active = sort === m;
+                    const activeStyle = 'background:var(--btn-primary-gradient);color:#fff;border-color:transparent;';
+                    const inactiveStyle = 'background:var(--table-row-alt);color:var(--text-secondary);';
+                    return `<button onclick="setLibrarySortMode('${m}')" style="flex:1;min-width:0;padding:7px 10px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid var(--border-color);min-height:unset;box-shadow:none;margin:0;transition:all 0.15s;${active ? activeStyle : inactiveStyle}">${label}</button>`;
+                }).join('')
+            }</div>`;
+
+            // Renderizar: barra de orden → botón añadir → juegos
             const addBtn = `<button class="library-game-item library-game-item-add" onclick="openAddGameSheet()">
                 <span class="library-game-item-emoji">＋</span>
                 <span class="library-game-item-name">Añadir juego nuevo</span>
@@ -3010,7 +3005,7 @@
                 </button>`;
             }).join('');
 
-            container.innerHTML = addBtn + gameItems;
+            container.innerHTML = sortBar + addBtn + gameItems;
         }
 
         function openGameLibraryModal(libIndex) {
@@ -3786,6 +3781,23 @@
                 document.getElementById('tplFormError').textContent = 'El nombre es obligatorio.';
                 return;
             }
+            const normName = normStr(name);
+            const allTpls = getCustomTemplates();
+            const otherTpls = _editingTemplateIndex !== null ? allTpls.filter((_, i) => i !== _editingTemplateIndex) : allTpls;
+            if (otherTpls.some(t => normStr(t.name) === normName)) {
+                document.getElementById('tplFormError').textContent = 'Ya hay un juego en la biblioteca con ese nombre.';
+                return;
+            }
+            let excludedNorm = null;
+            if (_editingTemplateIndex !== null) {
+                excludedNorm = normStr(allTpls[_editingTemplateIndex].name);
+            } else if (_pendingHistoryTpl !== null) {
+                excludedNorm = normName;
+            }
+            if (getHistory().some(e => { const n = normStr(e.gameName); return n === normName && n !== excludedNorm; })) {
+                document.getElementById('tplFormError').textContent = 'Ya hay un juego en el historial con ese nombre.';
+                return;
+            }
             const maxP = parseInt(document.getElementById('tplMaxPlayers').value);
             const templates = getCustomTemplates();
             const currentTpl = _editingTemplateIndex !== null ? templates[_editingTemplateIndex] : null;
@@ -3962,8 +3974,21 @@
                 document.getElementById('tplFormError').textContent = 'Ya hay un juego en la biblioteca con ese nombre.';
                 return;
             }
-            if (_editingTemplateIndex === null && getHistory().some(e => normStr(e.gameName) === normName)) {
-                document.getElementById('tplFormError').textContent = 'Ya hay un juego en el historial con ese nombre. Añádelo a tu bilioteca desde ahí.';
+            // Calcular el nombre a excluir del chequeo de historial:
+            // - Al editar: excluir el nombre actual de la plantilla (es su propio historial)
+            // - Al crear desde historial: excluir el nombre pre-rellenado (proviene del historial)
+            // - Al crear desde cero: sin exclusión → bloquear si ya existe en historial
+            let excludedNorm = null;
+            if (_editingTemplateIndex !== null) {
+                excludedNorm = normStr(allTpls[_editingTemplateIndex].name);
+            } else if (_pendingHistoryTpl !== null) {
+                excludedNorm = normName;
+            }
+            if (getHistory().some(e => {
+                const n = normStr(e.gameName);
+                return n === normName && n !== excludedNorm;
+            })) {
+                document.getElementById('tplFormError').textContent = 'Ya hay un juego en el historial con ese nombre.';
                 return;
             }
             if (!_tplScoringConfigured) {
